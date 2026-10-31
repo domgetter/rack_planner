@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Rack Planner</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -61,8 +66,10 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { background: var(--bg); color: var(--ink); }
 body {
+  margin: 0;
   font: 400 15px/1.5 var(--font-body);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -263,6 +270,7 @@ select.btn { padding-right: 8px; }
   transition: top 60ms ease-out, left 60ms ease-out;
 }
 .ghost.away { opacity: .7; transition: none; }
+.ghost.fresh { transition: none; }
 .ghost .drop-hint {
   position: absolute; left: 50%; top: 100%; transform: translate(-50%, 6px);
   font: 600 12px/1 var(--font-body); background: var(--bad); color: #fff; padding: 5px 8px; border-radius: 4px; white-space: nowrap;
@@ -336,6 +344,8 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 }
 @media (prefers-reduced-motion: reduce) { .ghost { transition: none; } }
 </style>
+</head>
+<body>
 
 <div class="app">
   <header class="top">
@@ -344,6 +354,13 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       <input id="rack-name" class="rack-name" aria-label="Rack name" maxlength="60">
     </div>
     <div class="top-controls">
+      <label class="field-inline" for="theme">Theme
+        <select id="theme" class="btn">
+          <option value="auto">Auto</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
       <label class="field-inline" for="rack-height">Rack height
         <select id="rack-height" class="btn"></select>
       </label>
@@ -771,11 +788,13 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     try { src.el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
   }
 
-  function startDrag() {
+  function startDrag(e) {
     drag.started = true;
     const { r, U } = bayGeom();
     const g = document.createElement('div');
-    g.className = 'device ghost k-' + drag.kind;
+    g.className = 'device ghost fresh k-' + drag.kind;
+    g.style.left = (e.clientX - drag.grabX) + 'px';
+    g.style.top = (e.clientY - drag.grabY) + 'px';
     g.style.setProperty('--u', U + 'px');
     g.style.width = r.width + 'px';
     g.style.height = (drag.h * U - 2) + 'px';
@@ -853,7 +872,13 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     if (!drag || e.pointerId !== drag.pid) return;
     if (!drag.started) {
       if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
-      startDrag();
+      startDrag(e);
+      moveDrag(e);
+      // place it first, then allow the snap animation from the next frame on
+      const g = drag.ghost;
+      void g.offsetWidth;
+      requestAnimationFrame(() => g.classList.remove('fresh'));
+      return;
     }
     e.preventDefault();
     moveDrag(e);
@@ -876,6 +901,25 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       t.addEventListener('click', (e) => { if (Date.now() - lastTileTap > 400 && e.detail === 0) addDevice(h); });
     });
   }
+
+  /* ---------- Theme ---------- */
+  const THEME_KEY = 'rack-planner.theme';
+  const rootEl = document.documentElement;
+  const hostTheme = rootEl.getAttribute('data-theme');
+  function applyTheme(t) {
+    if (t === 'light' || t === 'dark') rootEl.setAttribute('data-theme', t);
+    else if (hostTheme) rootEl.setAttribute('data-theme', hostTheme);
+    else rootEl.removeAttribute('data-theme');
+  }
+  let themePref = 'auto';
+  try { themePref = localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { /* ignore */ }
+  $('#theme').value = themePref;
+  applyTheme(themePref);
+  $('#theme').addEventListener('change', (e) => {
+    themePref = e.target.value;
+    try { localStorage.setItem(THEME_KEY, themePref); } catch (err) { /* ignore */ }
+    applyTheme(themePref);
+  });
 
   /* ---------- Header controls ---------- */
   let nameSnap = false;
@@ -984,3 +1028,6 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   render();
 })();
 </script>
+
+</body>
+</html>
