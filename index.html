@@ -570,8 +570,8 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
           <input type="file" id="open-file" class="sr" accept=".json,application/json">
         </div>
         <div class="row-btns">
-          <button class="btn" id="copy-json" type="button">Copy layout</button>
-          <button class="btn" id="show-import" type="button">Paste a layout</button>
+          <button class="btn" id="copy-json" type="button">Copy layout to clipboard</button>
+          <button class="btn" id="show-import" type="button">Load layout from clipboard</button>
         </div>
         <textarea id="io-text" aria-label="Layout JSON" hidden spellcheck="false"></textarea>
         <div class="row-btns" id="import-actions" hidden>
@@ -1668,10 +1668,24 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       navigator.clipboard.writeText(text).then(() => { ta.hidden = true; ioMsg('Layout copied to your clipboard.'); }, fallback);
     } catch (err) { fallback(); }
   });
-  $('#show-import').addEventListener('click', () => {
+  function showPasteBox(msg) {
     const ta = $('#io-text');
     ta.hidden = false; ta.readOnly = false; ta.value = ''; ta.placeholder = 'Paste a layout you copied earlier';
-    $('#import-actions').hidden = false; ioMsg(''); ta.focus();
+    $('#import-actions').hidden = false; ioMsg(msg || ''); ta.focus();
+  }
+  $('#show-import').addEventListener('click', () => {
+    let reading = null;
+    try { reading = navigator.clipboard && navigator.clipboard.readText ? navigator.clipboard.readText() : null; } catch (e) { reading = null; }
+    if (!reading) { showPasteBox('Paste your layout here, then choose Load this layout.'); return; }
+    reading.then((text) => {
+      if (!text || !text.trim()) { ioMsg('Your clipboard is empty. Copy a layout first.', true); return; }
+      if (loadLayoutText(text)) {
+        $('#io-text').hidden = true; $('#import-actions').hidden = true;
+        ioMsg('Layout loaded from your clipboard.');
+      } else {
+        ioMsg('Your clipboard doesn’t hold a valid layout. Copy one with “Copy layout to clipboard” first.', true);
+      }
+    }, () => showPasteBox('This browser didn’t allow reading the clipboard. Paste your layout here instead.'));
   });
   $('#cancel-import').addEventListener('click', () => { $('#io-text').hidden = true; $('#import-actions').hidden = true; ioMsg(''); });
   function loadLayoutText(text) {
@@ -1685,7 +1699,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   }
   $('#do-import').addEventListener('click', () => {
     if (!loadLayoutText($('#io-text').value)) {
-      ioMsg('That text isn’t a valid layout. Paste the full text from “Copy layout”, and check that no devices overlap.', true);
+      ioMsg('That text isn’t a valid layout. Paste the full text from “Copy layout to clipboard”, and check that no devices overlap.', true);
       return;
     }
     $('#io-text').hidden = true; $('#import-actions').hidden = true;
@@ -1700,8 +1714,27 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const pad = (n) => String(n).padStart(2, '0');
     return slug + '-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.json';
   }
+  // Inside Claude, files go through the viewer's save prompt. Standalone (GitHub Pages), a normal download.
+  let downloadsApi = null;
+  try {
+    if (window.claude && typeof window.claude.use === 'function') {
+      window.claude.use('downloads').then((ns) => { downloadsApi = ns; }, () => {});
+    }
+  } catch (e) { /* not inside Claude */ }
+
   $('#save-file').addEventListener('click', () => {
     const name = fileName();
+    if (downloadsApi) {
+      downloadsApi.save({ filename: name, data: exportJSON() }).then(
+        () => ioMsg('Saved ' + name + '.'),
+        (err) => {
+          const code = err && err.code;
+          if (code === 'declined') ioMsg('Save cancelled.');
+          else if (code === 'rate_limited') ioMsg('A save prompt is already open. Finish that one, then try again.');
+          else ioMsg('Saving files isn’t available here. Use Copy layout to clipboard instead.', true);
+        });
+      return;
+    }
     try {
       const url = URL.createObjectURL(new Blob([exportJSON()], { type: 'application/json' }));
       const a = document.createElement('a');
@@ -1710,7 +1743,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (err) { /* handled by the message below */ }
     ioMsg(framed
-      ? 'This preview may block downloads. If no file appeared, open the planner on its own page (like your GitHub Pages site), or use Copy layout.'
+      ? 'This preview may block downloads. If no file appeared, open the planner on its own page (like your GitHub Pages site), or use Copy layout to clipboard.'
       : 'Saved ' + name + ' to your downloads.');
   });
   $('#open-file').addEventListener('change', (e) => {
