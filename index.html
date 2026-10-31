@@ -397,6 +397,20 @@ body.dragging .cables { opacity: .2; }
 .snap { z-index: 4; }
 /* White outline for the slot under the mouse in the elevation list; it sits exactly over the orange selection outline */
 /* See-through preview of a New Equipment item at the slot it would drop into */
+/* Edge resize: a handle appears on the hovered edge */
+.device.edge-top::before, .device.edge-bottom::after {
+  content: ""; position: absolute; left: 30%; right: 30%; height: 4px; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 0 1px rgba(0,0,0,.45); z-index: 7; pointer-events: none;
+}
+.device.edge-top::before { top: -3px; }
+.device.edge-bottom::after { bottom: -3px; }
+.bay.edge-hot, .bay.edge-hot * { cursor: ns-resize !important; }
+body.resizing, body.resizing * { cursor: ns-resize !important; user-select: none; }
+.size-badge {
+  position: fixed; z-index: 1150; pointer-events: none; white-space: nowrap;
+  font: 500 12px/1 var(--font-mono); background: var(--ink); color: var(--bg);
+  padding: 5px 7px; border-radius: 5px; box-shadow: 0 6px 16px rgba(0,0,0,.25);
+}
 .device.place-ghost {
   pointer-events: none; z-index: 5; opacity: .5;
   outline: 2px dashed var(--hover-ring); outline-offset: 1px;
@@ -1072,6 +1086,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       el.setAttribute('aria-label', displayName(d) + ', ' + d.h + 'U ' + kindName(d.kind) + ' at ' + posLabel(d));
       el.style.setProperty('--row', H() - (d.u + d.h - 1));
       el.style.setProperty('--h', d.h);
+      if (drag && drag.type === 'resize' && drag.id === d.id) el.classList.add('edge-' + drag.edge);
       el.innerHTML = faceHTML(d);
       el.addEventListener('dblclick', (e) => { if (!e.target.closest('.port')) startInlineEdit(d.id); });
       // keyboard focus selects; mouse presses are handled by the bay (click vs drag)
@@ -1085,6 +1100,93 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     drawCables();
     drawHoverMark();
     drawPlacementGhost();
+  }
+
+  /* ---------- Resize by dragging a device's top or bottom edge ---------- */
+  // Which device edge (if any) is under the pointer. Ports win over edges.
+  function edgeAt(e) {
+    const under = document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [e.target];
+    if (under.some((el) => el.matches && el.matches('.port[data-port]'))) return null;
+    const devEl = under.find((el) => el.matches && el.matches('.device[data-id]'));
+    if (!devEl) return null;
+    const r = devEl.getBoundingClientRect();
+    const zone = Math.max(5, Math.min(9, bayGeom().U * 0.18));
+    if (e.clientY - r.top <= zone) return { id: devEl.dataset.id, edge: 'top' };
+    if (r.bottom - e.clientY <= zone) return { id: devEl.dataset.id, edge: 'bottom' };
+    return null;
+  }
+  function markEdge(hit) {
+    $$('.device.edge-top, .device.edge-bottom').forEach((el) => {
+      if (!hit || el.dataset.id !== hit.id) el.classList.remove('edge-top', 'edge-bottom');
+    });
+    if (hit) {
+      const el = document.querySelector('.device[data-id="' + hit.id + '"]');
+      if (el) { el.classList.toggle('edge-top', hit.edge === 'top'); el.classList.toggle('edge-bottom', hit.edge === 'bottom'); }
+    }
+    $('#bay').classList.toggle('edge-hot', !!hit);
+  }
+  function beginResize(e, hit) {
+    const d = byId(hit.id); if (!d) return;
+    drag = { type: 'resize', id: d.id, edge: hit.edge, u0: d.u, h0: d.h, ports0: d.ports,
+             before: JSON.stringify(state), started: false, x0: e.clientX, y0: e.clientY, pid: e.pointerId };
+    try { $('#bay').setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  }
+  function moveResize(e) {
+    const r = drag;
+    const d = byId(r.id); if (!d) return;
+    if (!r.started) {
+      if (Math.abs(e.clientY - r.y0) < 4) return;
+      r.started = true;
+      if (pendingPort) { pendingPort = null; renderModeHint(); }
+      selectedId = d.id; selectedCableId = null;
+      // keep a patch panel's or switch's current port count so shrinking it never drops cables
+      if (CABLE_FACES.indexOf(d.face) > -1 && d.face !== 'router' && !d.ports) d.ports = portCount(d);
+      document.body.classList.add('resizing');
+      r.badge = document.createElement('div'); r.badge.className = 'size-badge'; document.body.appendChild(r.badge);
+    }
+    const { r: br, U } = bayGeom();
+    const boundary = Math.round((e.clientY - br.top) / U); // a line between rows, 0 = top of rack
+    const top0 = r.u0 + r.h0 - 1;
+    let want, u;
+    if (r.edge === 'top') {
+      want = (H() - r.u0 + 1) - boundary;          // rows from the boundary down to the fixed bottom
+    } else {
+      want = top0 - (H() - boundary + 1) + 1;      // rows from the fixed top down to the boundary
+    }
+    want = Math.max(1, Math.min(4, want));
+    // grow one U at a time and stop at the first thing in the way
+    let h = 1;
+    for (let k = 1; k <= want; k++) {
+      const uk = r.edge === 'top' ? r.u0 : top0 - k + 1;
+      if (!free(uk, k, d.id)) break;
+      h = k;
+    }
+    u = r.edge === 'top' ? r.u0 : top0 - h + 1;
+    if (d.h !== h || d.u !== u) {
+      d.h = h; d.u = u;
+      renderRack(); renderStats();
+    }
+    r.badge.textContent = h + 'U · ' + posLabel(d);
+    r.badge.style.left = (e.clientX + 14) + 'px';
+    r.badge.style.top = (e.clientY + 14) + 'px';
+  }
+  function endResize(cancelled) {
+    const r = drag; drag = null;
+    try { $('#bay').releasePointerCapture(r.pid); } catch (err) { /* ignore */ }
+    document.body.classList.remove('resizing');
+    if (r.badge) r.badge.remove();
+    markEdge(null);
+    const d = byId(r.id);
+    if (!r.started) { if (pendingPort) cancelPending(); select(r.id); return; }
+    const changed = d && (d.u !== r.u0 || d.h !== r.h0);
+    if (cancelled || !changed) {
+      state = JSON.parse(r.before);
+      render();
+      return;
+    }
+    history.push(r.before); if (history.length > 80) history.shift();
+    state.cables = validCables(state.cables, state.devices);
+    save(); render();
   }
 
   /* ---------- Placement preview while hovering New Equipment ---------- */
@@ -1690,6 +1792,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   }
 
   function endDrag(e, cancelled) {
+    if (drag && drag.type === 'resize') { endResize(cancelled); return; }
     const d = drag; drag = null;
     try { d.el.releasePointerCapture(d.pid); } catch (err) { /* ignore */ }
     if (!d.started) {
@@ -1720,6 +1823,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 
   window.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.pid) return;
+    if (drag.type === 'resize') { e.preventDefault(); moveResize(e); return; }
     if (!drag.started) {
       if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
       startDrag(e);
@@ -1951,6 +2055,10 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const portEl = under.find((el) => el.matches && el.matches('.port[data-port]'));
     const devEl = under.find((el) => el.matches && el.matches('.device[data-id]'));
     const cab = e.target.closest('.cable[data-cable]');
+    if (devEl && !portEl) {
+      const hit = edgeAt(e);
+      if (hit) { beginResize(e, hit); return; }
+    }
     if (devEl) {
       const d = byId(devEl.dataset.id); if (!d) return;
       const r = devEl.getBoundingClientRect();
@@ -1974,8 +2082,12 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     if (tr) setHoverCable(tr.dataset.cable);
   });
   $('#cable-list').addEventListener('mouseleave', () => setHoverCable(null));
-  $('#bay').addEventListener('pointermove', (e) => { if (pendingPort && !drag) drawTempCable(e); });
-  $('#bay').addEventListener('pointerleave', () => drawTempCable(null));
+  $('#bay').addEventListener('pointermove', (e) => {
+    if (drag) return;
+    if (pendingPort) drawTempCable(e);
+    markEdge(edgeAt(e));
+  });
+  $('#bay').addEventListener('pointerleave', () => { drawTempCable(null); if (!drag) markEdge(null); });
   $('#cable-cancel').addEventListener('click', cancelPending);
   $('#show-cables').addEventListener('change', (e) => { showCables = e.target.checked; drawCables(); });
   if (window.ResizeObserver) new ResizeObserver(() => drawCables()).observe($('#bay'));
