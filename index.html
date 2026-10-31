@@ -1,0 +1,986 @@
+<title>Rack Planner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: workbench. Equipment shelf + inspector on the left, the rack elevation in the middle, the elevation list on the right. */
+:root {
+  --bg: #e8ebee;
+  --panel: #f7f8f9;
+  --ink: #1a1f24;
+  --muted: #5a6570;
+  --line: #ccd3d9;
+  --accent: #c47a1f;
+  --accent-ink: #ffffff;
+  --ok: #2f9e66;
+  --ok-bg: rgba(63, 191, 127, 0.18);
+  --bad: #d6463e;
+  --bad-bg: rgba(224, 82, 74, 0.22);
+
+  /* The rack itself is black steel in either theme */
+  --frame: #22272c;
+  --frame-hi: #30363c;
+  --rail: #3a4148;
+  --rail-ink: #a3adb6;
+  --hole: #15181b;
+  --bay: #121518;
+  --bay-line: #1f2428;
+  --face: #4a525a;
+  --face-hi: #5c656e;
+  --face-lo: #393f46;
+  --ear: #6a737c;
+  --tape: #f2f0e6;
+  --tape-ink: #111315;
+  --led: #5ad38c;
+
+  --k-server: #4f8fd6;
+  --k-network: #2db39e;
+  --k-storage: #9b7ee0;
+  --k-power: #e0a23a;
+  --k-patch: #8e9aa6;
+  --k-other: #d9788a;
+
+  --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --font-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111417; --panel: #191d21; --ink: #e2e6ea; --muted: #97a1aa; --line: #2b3137;
+    --accent: #e6a14a; --accent-ink: #1b1206; --ok: #4fcf8c; --bad: #f0675f;
+    --frame: #0d0f11; --frame-hi: #1b1f23; --rail: #2b3136; --bay: #08090b; --bay-line: #171b1f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111417; --panel: #191d21; --ink: #e2e6ea; --muted: #97a1aa; --line: #2b3137;
+  --accent: #e6a14a; --accent-ink: #1b1206; --ok: #4fcf8c; --bad: #f0675f;
+  --frame: #0d0f11; --frame-hi: #1b1f23; --rail: #2b3136; --bay: #08090b; --bay-line: #171b1f;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--ink); }
+body {
+  font: 400 15px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; }
+.brand { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.eyebrow { font: 600 12px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.rack-name {
+  font: 700 34px/1.1 var(--font-display); letter-spacing: .01em;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  padding: 2px 6px; margin-left: -7px; width: 100%; max-width: 520px;
+}
+.rack-name:hover { border-color: var(--line); }
+.rack-name:focus { border-color: var(--accent); outline: none; background: var(--panel); }
+.top-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.field-inline { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+.btn {
+  font: 500 14px/1 var(--font-body); padding: 9px 13px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.danger { color: var(--bad); }
+.btn.armed { background: var(--bad); border-color: var(--bad); color: #fff; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+select.btn { padding-right: 8px; }
+
+.example-note {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: 8px; border: 1px dashed var(--accent);
+  font-size: 14px; color: var(--ink);
+}
+.example-note strong { font-weight: 600; }
+.example-note .spacer { flex: 1; }
+
+/* Grid */
+.layout {
+  display: grid; gap: 16px; align-items: start;
+  grid-template-columns: 290px minmax(340px, 540px) minmax(0, 1fr);
+  grid-template-areas:
+    "palette stage list"
+    "inspect stage list"
+    "files   stage list";
+}
+.a-palette { grid-area: palette; }
+.a-inspect { grid-area: inspect; }
+.a-files { grid-area: files; }
+.a-stage { grid-area: stage; }
+.a-list { grid-area: list; }
+@media (max-width: 1180px) {
+  .layout {
+    grid-template-columns: 290px minmax(0, 1fr);
+    grid-template-areas: "palette stage" "inspect stage" "files stage" "list list";
+  }
+}
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "palette" "stage" "inspect" "list" "files"; }
+  .rack-name { font-size: 28px; }
+}
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.panel h2 {
+  margin: 0 0 4px; font: 600 15px/1.2 var(--font-display); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+
+/* Palette */
+.palette { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile {
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: left;
+  padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg);
+  cursor: grab;
+}
+.tile:hover { border-color: var(--accent); }
+.tile:active { cursor: grabbing; }
+.tile-art { display: flex; align-items: flex-end; height: 50px; }
+.mini {
+  width: 100%; border-radius: 2px; border-left: 4px solid var(--k-server);
+  background: linear-gradient(to bottom, var(--face-hi), var(--face) 45%, var(--face-lo));
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.35);
+  position: relative;
+}
+.mini::after {
+  content: ""; position: absolute; right: 6px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px;
+  border-radius: 50%; background: var(--led); box-shadow: 0 0 4px var(--led);
+}
+.tile-cap { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.tile-size { font: 700 22px/1 var(--font-display); }
+.tile-dim { font: 400 11px/1 var(--font-mono); color: var(--muted); }
+
+/* Stage */
+.stage { display: flex; flex-direction: column; gap: 12px; align-items: stretch; min-width: 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; font-size: 14px; color: var(--muted); }
+.stats b { font: 700 20px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; margin-right: 3px; }
+.meter { display: flex; gap: 2px; height: 8px; width: 100%; }
+.meter i { flex: 1; border-radius: 1px; background: var(--line); }
+
+.rack {
+  --u: 40px;
+  user-select: none; -webkit-user-select: none;
+  width: 100%; max-width: 540px; margin: 0 auto;
+  background: linear-gradient(to right, var(--frame), var(--frame-hi) 50%, var(--frame));
+  border-radius: 6px; padding: 0 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18), inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.rack-cap {
+  height: 30px; display: flex; align-items: center; justify-content: space-between;
+  font: 500 10px/1 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--rail-ink);
+  padding: 0 6px;
+}
+.rack-cap.bottom { height: 22px; }
+.rack-body { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; background: var(--bay); }
+.rail { background: var(--rail); display: flex; flex-direction: column; }
+.rail-u {
+  height: var(--u); display: flex; align-items: center;
+  font: 500 10px/1 var(--font-mono); color: var(--rail-ink); font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid rgba(0,0,0,.28);
+  background-image: linear-gradient(var(--hole), var(--hole)), linear-gradient(var(--hole), var(--hole)), linear-gradient(var(--hole), var(--hole));
+  background-size: 6px 5px; background-repeat: no-repeat;
+}
+.rail.left .rail-u { justify-content: flex-start; padding-left: 4px; background-position: right 4px top 18%, right 4px center, right 4px bottom 18%; }
+.rail.right .rail-u { justify-content: flex-end; padding-right: 4px; background-position: left 4px top 18%, left 4px center, left 4px bottom 18%; }
+.rail-u.used { color: var(--tape); }
+
+.bay {
+  position: relative; height: calc(var(--h-rack) * var(--u));
+  background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--u) - 1px), var(--bay-line) calc(var(--u) - 1px) var(--u));
+}
+
+/* Devices */
+.device {
+  --kind: var(--k-server);
+  position: absolute; left: 0; right: 0;
+  top: calc(var(--row) * var(--u) + 1px);
+  height: calc(var(--h) * var(--u) - 2px);
+  display: flex; cursor: grab; touch-action: none; border-radius: 2px;
+}
+.device.k-server { --kind: var(--k-server); }
+.device.k-network { --kind: var(--k-network); }
+.device.k-storage { --kind: var(--k-storage); }
+.device.k-power { --kind: var(--k-power); }
+.device.k-patch { --kind: var(--k-patch); }
+.device.k-other { --kind: var(--k-other); }
+.device:focus { outline: none; }
+.device.selected, .device:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 2; }
+.device.lifting { opacity: .25; }
+.ear {
+  flex: 0 0 14px; background-color: var(--ear);
+  background-image: radial-gradient(circle at 50% calc(var(--u) / 2), var(--hole) 2.6px, rgba(0,0,0,.4) 3.4px, transparent 4px);
+  background-size: 100% var(--u); background-repeat: repeat-y; background-position: 0 -1px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.3);
+}
+.face {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0 10px;
+  border-left: 5px solid var(--kind);
+  background: linear-gradient(to bottom, var(--face-hi), var(--face) 40%, var(--face-lo));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.09), inset 0 -1px 0 rgba(0,0,0,.35);
+}
+.tape, .tape-input {
+  min-width: 0; max-width: 68%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 clamp(12px, calc(var(--u) * .4), 16px)/1.25 var(--font-display);
+  letter-spacing: .05em; text-transform: uppercase;
+  background: var(--tape); color: var(--tape-ink);
+  padding: 2px 8px; border-radius: 1px; box-shadow: 0 1px 0 rgba(0,0,0,.45);
+}
+.tape-input { border: 0; outline: 2px solid var(--accent); width: 68%; }
+.face .spacer { flex: 1; }
+.vents {
+  flex: 0 1 120px; min-width: 0; align-self: stretch; margin-block: 10px;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,.42) 0 3px, transparent 3px 7px);
+  border-radius: 2px;
+}
+.leds { display: flex; flex-direction: column; gap: 4px; }
+.leds i { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--led); box-shadow: 0 0 5px var(--led); }
+.leds i + i { background: var(--kind); box-shadow: 0 0 5px var(--kind); }
+
+.snap {
+  position: absolute; left: 0; right: 0; pointer-events: none; z-index: 3;
+  top: calc(var(--row) * var(--u) + 1px); height: calc(var(--h) * var(--u) - 2px);
+  border: 2px dashed var(--ok); background: var(--ok-bg); border-radius: 2px;
+}
+.snap.bad { border-color: var(--bad); background: var(--bad-bg); }
+
+.ghost {
+  position: fixed; z-index: 1000; pointer-events: none; opacity: .92;
+  box-shadow: 0 14px 30px rgba(0,0,0,.4);
+  transition: top 60ms ease-out, left 60ms ease-out;
+}
+.ghost.away { opacity: .7; transition: none; }
+.ghost .drop-hint {
+  position: absolute; left: 50%; top: 100%; transform: translate(-50%, 6px);
+  font: 600 12px/1 var(--font-body); background: var(--bad); color: #fff; padding: 5px 8px; border-radius: 4px; white-space: nowrap;
+}
+body.dragging, body.dragging * { cursor: grabbing !important; }
+
+/* Inspector */
+.field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.field > span { font: 600 12px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.input {
+  width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg);
+}
+.input:focus { border-color: var(--accent); outline: none; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.seg button {
+  padding: 7px 0; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); cursor: pointer;
+  font: 600 15px/1 var(--font-display);
+}
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pos { font: 500 13px/1.4 var(--font-mono); color: var(--muted); margin: 0 0 12px; }
+.row-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.empty-inspect { font-size: 14px; color: var(--muted); margin: 0; }
+.kbd-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
+kbd { font: 500 11px/1 var(--font-mono); padding: 2px 5px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); }
+
+/* Files */
+.io { display: flex; flex-direction: column; gap: 8px; }
+.io textarea {
+  width: 100%; min-height: 120px; resize: vertical; padding: 8px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg); font: 400 12px/1.4 var(--font-mono);
+}
+.io-msg { font-size: 13px; color: var(--muted); margin: 0; }
+.io-msg.err { color: var(--bad); }
+
+/* List */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th {
+  text-align: left; font: 600 12px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); padding: 8px 8px; border-bottom: 1px solid var(--line);
+}
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.pos-col { font: 500 12px/1 var(--font-mono); white-space: nowrap; font-variant-numeric: tabular-nums; }
+tr.dev-row { cursor: pointer; }
+tr.dev-row:hover td { background: var(--bg); }
+tr.dev-row.selected td { background: var(--bg); box-shadow: inset 0 0 0 0 transparent; }
+tr.dev-row.selected td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+tr.gap-row td { color: var(--muted); font-style: italic; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+.chip::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--c); }
+.dev-name { font-weight: 500; overflow-wrap: anywhere; }
+
+/* Toast */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 1100;
+  display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px);
+  background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 8px;
+  font-size: 14px; box-shadow: 0 10px 24px rgba(0,0,0,.25);
+}
+.toast button { background: transparent; border: 0; color: var(--accent); font-weight: 600; cursor: pointer; padding: 2px 4px; }
+
+@media (max-width: 560px) {
+  .vents { display: none; }
+  .rack { padding: 0 6px; }
+  .rack-body { grid-template-columns: 26px minmax(0, 1fr) 26px; }
+  .rail.left .rail-u { padding-left: 2px; background-position: right 2px top 18%, right 2px center, right 2px bottom 18%; }
+  .rail.right .rail-u { padding-right: 2px; background-position: left 2px top 18%, left 2px center, left 2px bottom 18%; }
+  .rail-u { background-size: 5px 4px; font-size: 9px; }
+  .ear { flex-basis: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .ghost { transition: none; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Rack planner · front elevation</span>
+      <input id="rack-name" class="rack-name" aria-label="Rack name" maxlength="60">
+    </div>
+    <div class="top-controls">
+      <label class="field-inline" for="rack-height">Rack height
+        <select id="rack-height" class="btn"></select>
+      </label>
+      <button id="undo" class="btn" type="button">Undo</button>
+      <button id="clear" class="btn danger" type="button">Clear rack</button>
+    </div>
+  </header>
+
+  <div class="example-note" id="example-note" hidden>
+    <span><strong>Example layout.</strong> Drag things around to get a feel for it, or clear the rack to start your own plan.</span>
+    <span class="spacer"></span>
+    <button class="btn" id="keep-example" type="button">Keep it</button>
+    <button class="btn primary" id="start-fresh" type="button">Start with an empty rack</button>
+  </div>
+
+  <div class="layout">
+    <section class="panel a-palette">
+      <h2>Equipment</h2>
+      <p class="hint">Drag a size onto the rack. It snaps to the nearest open U. Tap one to drop it in the top free slot.</p>
+      <div class="palette" id="palette"></div>
+    </section>
+
+    <main class="stage a-stage">
+      <div class="stats" id="stats"></div>
+      <div class="meter" id="meter" aria-hidden="true"></div>
+      <div class="rack" id="rack">
+        <div class="rack-cap"><span id="cap-name">Front</span><span id="cap-size">16U</span></div>
+        <div class="rack-body">
+          <div class="rail left" id="rail-l" aria-hidden="true"></div>
+          <div class="bay" id="bay" aria-label="Rack bay"></div>
+          <div class="rail right" id="rail-r" aria-hidden="true"></div>
+        </div>
+        <div class="rack-cap bottom"><span>U1 at bottom</span><span>19″ · 1U = 1.75″</span></div>
+      </div>
+    </main>
+
+    <section class="panel a-inspect" id="inspector" aria-live="polite"></section>
+
+    <section class="panel a-files">
+      <h2>Save &amp; load</h2>
+      <p class="hint">Your plan is saved in this browser automatically. Copy it as text to back it up or move it elsewhere.</p>
+      <div class="io">
+        <div class="row-btns">
+          <button class="btn" id="copy-json" type="button">Copy layout</button>
+          <button class="btn" id="show-import" type="button">Paste a layout</button>
+        </div>
+        <textarea id="io-text" aria-label="Layout JSON" hidden spellcheck="false"></textarea>
+        <div class="row-btns" id="import-actions" hidden>
+          <button class="btn primary" id="do-import" type="button">Load this layout</button>
+          <button class="btn" id="cancel-import" type="button">Cancel</button>
+        </div>
+        <p class="io-msg" id="io-msg" hidden></p>
+      </div>
+    </section>
+
+    <section class="panel a-list">
+      <h2>Elevation list</h2>
+      <p class="hint">Top of the rack first. Click a row to select it.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Position</th><th>Device</th><th>Size</th><th>Type</th></tr></thead>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+
+<script>
+(function () {
+  const KINDS = [
+    { id: 'server', name: 'Server' },
+    { id: 'network', name: 'Network' },
+    { id: 'storage', name: 'Storage' },
+    { id: 'power', name: 'Power' },
+    { id: 'patch', name: 'Patching' },
+    { id: 'other', name: 'Other' }
+  ];
+  const SIZES = [1, 2, 3, 4];
+  const HEIGHTS = [6, 9, 12, 16, 18, 22, 24, 32, 42, 48];
+  const KEY = 'rack-planner.v1';
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const kindName = (k) => (KINDS.find((x) => x.id === k) || KINDS[5]).name;
+  const inches = (h) => (h * 1.75).toString().replace(/\.0+$/, '') + ' in';
+  const posLabel = (d) => d.h === 1 ? 'U' + d.u : 'U' + d.u + '–U' + (d.u + d.h - 1);
+
+  function exampleState() {
+    return {
+      name: 'Homelab rack', height: 16, example: true,
+      devices: [
+        { id: uid(), u: 16, h: 1, label: 'Patch panel 24p', kind: 'patch' },
+        { id: uid(), u: 15, h: 1, label: 'Core switch', kind: 'network' },
+        { id: uid(), u: 12, h: 2, label: 'NAS', kind: 'storage' },
+        { id: uid(), u: 8, h: 3, label: 'GPU node', kind: 'server' },
+        { id: uid(), u: 3, h: 4, label: 'Compute node', kind: 'server' },
+        { id: uid(), u: 1, h: 2, label: 'UPS', kind: 'power' }
+      ]
+    };
+  }
+
+  function overlaps(devs, u, h, ignoreId) {
+    return devs.some((d) => d.id !== ignoreId && d.u <= u + h - 1 && u <= d.u + d.h - 1);
+  }
+
+  function normalize(s) {
+    if (!s || typeof s !== 'object' || !Array.isArray(s.devices)) return null;
+    const height = Number(s.height);
+    if (!Number.isInteger(height) || height < 1 || height > 60) return null;
+    const out = { name: String(s.name || 'My rack').slice(0, 60), height, example: !!s.example, devices: [] };
+    for (const d of s.devices) {
+      const u = Number(d.u), h = Number(d.h);
+      if (!Number.isInteger(u) || !Number.isInteger(h) || h < 1 || h > 4 || u < 1 || u + h - 1 > height) return null;
+      if (overlaps(out.devices, u, h)) return null;
+      out.devices.push({
+        id: uid(), u, h,
+        label: String(d.label == null ? h + 'U device' : d.label).slice(0, 80),
+        kind: KINDS.some((k) => k.id === d.kind) ? d.kind : 'other'
+      });
+    }
+    return out;
+  }
+
+  function load() {
+    try { const raw = localStorage.getItem(KEY); return raw ? normalize(JSON.parse(raw)) : null; } catch (e) { return null; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
+  }
+
+  let state = load() || exampleState();
+  let selectedId = null;
+  let history = [];
+  let drag = null;
+  let editing = false;
+  const finePointer = window.matchMedia('(pointer: fine)').matches;
+
+  const H = () => state.height;
+  const byId = (id) => state.devices.find((d) => d.id === id);
+  const fits = (u, h) => u >= 1 && u + h - 1 <= H();
+  const free = (u, h, ignoreId) => fits(u, h) && !overlaps(state.devices, u, h, ignoreId);
+  function firstFree(h) {
+    for (let top = H(); top >= h; top--) { const u = top - h + 1; if (free(u, h)) return u; }
+    return null;
+  }
+
+  function snapshot() { history.push(JSON.stringify(state)); if (history.length > 80) history.shift(); updateUndo(); }
+  function mutate(fn, opts) {
+    snapshot(); fn(); save(); render(opts);
+  }
+  function undo() {
+    if (!history.length) return;
+    state = JSON.parse(history.pop());
+    if (selectedId && !byId(selectedId)) selectedId = null;
+    save(); render();
+  }
+  function updateUndo() { $('#undo').disabled = history.length === 0; }
+
+  /* ---------- Toast ---------- */
+  let toastTimer = null;
+  function toast(msg, withUndo) {
+    const t = $('#toast');
+    t.innerHTML = '<span>' + esc(msg) + '</span>' + (withUndo ? '<button type="button" id="toast-undo">Undo</button>' : '');
+    t.hidden = false;
+    if (withUndo) $('#toast-undo').onclick = () => { undo(); t.hidden = true; };
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, withUndo ? 5000 : 2600);
+  }
+
+  /* ---------- Rendering ---------- */
+  function unitPx() {
+    const narrow = window.matchMedia('(max-width: 560px)').matches;
+    let u = H() <= 16 ? 40 : H() <= 24 ? 32 : 22;
+    if (narrow) u = Math.round(u * 0.8);
+    return u;
+  }
+
+  function faceHTML(d) {
+    return '<span class="ear"></span><span class="face">' +
+      '<span class="tape">' + esc(d.label || 'Untitled') + '</span>' +
+      '<span class="spacer"></span>' +
+      (d.h >= 2 ? '<span class="vents"></span>' : '') +
+      '<span class="leds"><i></i><i></i></span>' +
+      '</span><span class="ear"></span>';
+  }
+
+  function renderRack() {
+    const rack = $('#rack');
+    rack.style.setProperty('--u', unitPx() + 'px');
+    rack.style.setProperty('--h-rack', H());
+    $('#cap-size').textContent = H() + 'U';
+    $('#cap-name').textContent = 'Front · ' + (state.name || 'Rack');
+
+    const used = new Set();
+    state.devices.forEach((d) => { for (let i = 0; i < d.h; i++) used.add(d.u + i); });
+    let rails = '';
+    for (let u = H(); u >= 1; u--) rails += '<div class="rail-u' + (used.has(u) ? ' used' : '') + '">' + u + '</div>';
+    $('#rail-l').innerHTML = rails;
+    $('#rail-r').innerHTML = rails;
+
+    const bay = $('#bay');
+    bay.innerHTML = '';
+    state.devices.forEach((d) => {
+      const el = document.createElement('div');
+      el.className = 'device k-' + d.kind + (d.id === selectedId ? ' selected' : '');
+      el.dataset.id = d.id;
+      el.tabIndex = 0;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', (d.label || 'Untitled') + ', ' + d.h + 'U ' + kindName(d.kind) + ' at ' + posLabel(d));
+      el.style.setProperty('--row', H() - (d.u + d.h - 1));
+      el.style.setProperty('--h', d.h);
+      el.innerHTML = faceHTML(d);
+      el.addEventListener('pointerdown', (e) => onDevicePointerDown(e, d.id));
+      el.addEventListener('dblclick', () => startInlineEdit(d.id));
+      el.addEventListener('focus', () => { if (selectedId !== d.id) select(d.id); });
+      bay.appendChild(el);
+    });
+  }
+
+  function renderStats() {
+    const used = state.devices.reduce((s, d) => s + d.h, 0);
+    const n = state.devices.length;
+    $('#stats').innerHTML =
+      '<span><b>' + used + 'U</b> used of ' + H() + 'U</span>' +
+      '<span><b>' + (H() - used) + 'U</b> free</span>' +
+      '<span><b>' + n + '</b> device' + (n === 1 ? '' : 's') + '</span>';
+    const cells = [];
+    for (let u = H(); u >= 1; u--) {
+      const d = state.devices.find((x) => u >= x.u && u <= x.u + x.h - 1);
+      cells.push('<i' + (d ? ' style="background:var(--k-' + d.kind + ')"' : '') + '></i>');
+    }
+    $('#meter').innerHTML = cells.join('');
+  }
+
+  function renderList() {
+    const rows = [];
+    let u = H();
+    while (u >= 1) {
+      const d = state.devices.find((x) => x.u + x.h - 1 === u);
+      if (d) {
+        rows.push('<tr class="dev-row' + (d.id === selectedId ? ' selected' : '') + '" data-id="' + d.id + '">' +
+          '<td class="pos-col">' + posLabel(d) + '</td>' +
+          '<td class="dev-name">' + esc(d.label || 'Untitled') + '</td>' +
+          '<td>' + d.h + 'U</td>' +
+          '<td><span class="chip" style="--c:var(--k-' + d.kind + ')">' + kindName(d.kind) + '</span></td></tr>');
+        u -= d.h;
+      } else {
+        let bottom = u;
+        while (bottom - 1 >= 1 && !state.devices.some((x) => bottom - 1 >= x.u && bottom - 1 <= x.u + x.h - 1)) bottom--;
+        const h = u - bottom + 1;
+        rows.push('<tr class="gap-row"><td class="pos-col">' + (h === 1 ? 'U' + u : 'U' + bottom + '–U' + u) + '</td><td>Empty</td><td>' + h + 'U</td><td></td></tr>');
+        u = bottom - 1;
+      }
+    }
+    $('#list').innerHTML = rows.join('');
+    $$('#list tr.dev-row').forEach((tr) => tr.addEventListener('click', () => {
+      select(tr.dataset.id);
+      const el = document.querySelector('.device[data-id="' + tr.dataset.id + '"]');
+      if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }));
+  }
+
+  function renderInspector() {
+    const box = $('#inspector');
+    const d = selectedId && byId(selectedId);
+    if (!d) {
+      box.innerHTML = '<h2>Selected device</h2><p class="empty-inspect">Click a device in the rack to rename it, change its size or type, or move it.</p>' +
+        '<p class="kbd-hint">Double-click a device to edit its label in place. Drag a device off the rack to remove it.</p>';
+      return;
+    }
+    const kindOpts = KINDS.map((k) => '<option value="' + k.id + '"' + (k.id === d.kind ? ' selected' : '') + '>' + k.name + '</option>').join('');
+    const seg = SIZES.map((h) => '<button type="button" data-h="' + h + '" aria-pressed="' + (h === d.h) + '">' + h + 'U</button>').join('');
+    box.innerHTML =
+      '<h2>Selected device</h2>' +
+      '<p class="pos">' + posLabel(d) + ' · ' + inches(d.h) + ' tall</p>' +
+      '<label class="field"><span>Label</span><input class="input" id="insp-label" maxlength="80" value="' + esc(d.label) + '"></label>' +
+      '<label class="field"><span>Type</span><select class="input" id="insp-kind">' + kindOpts + '</select></label>' +
+      '<div class="field"><span>Size</span><div class="seg" id="insp-size">' + seg + '</div></div>' +
+      '<div class="row-btns">' +
+        '<button class="btn" type="button" id="insp-up" aria-label="Move up one U">↑ Up</button>' +
+        '<button class="btn" type="button" id="insp-down" aria-label="Move down one U">↓ Down</button>' +
+        '<button class="btn" type="button" id="insp-dup">Duplicate</button>' +
+        '<button class="btn danger" type="button" id="insp-del">Remove</button>' +
+      '</div>' +
+      '<p class="kbd-hint"><kbd>↑</kbd> <kbd>↓</kbd> move · <kbd>Enter</kbd> rename · <kbd>Del</kbd> remove</p>';
+
+    const lab = $('#insp-label');
+    let snapped = false;
+    lab.addEventListener('focus', () => { snapped = false; });
+    lab.addEventListener('input', () => {
+      if (!snapped) { snapshot(); snapped = true; }
+      d.label = lab.value;
+      save(); renderRack(); renderList();
+    });
+    lab.addEventListener('keydown', (e) => { if (e.key === 'Enter') lab.blur(); });
+    $('#insp-kind').addEventListener('change', (e) => mutate(() => { d.kind = e.target.value; }));
+    $$('#insp-size button').forEach((b) => b.addEventListener('click', () => resize(d.id, Number(b.dataset.h))));
+    $('#insp-up').addEventListener('click', () => nudge(d.id, 1));
+    $('#insp-down').addEventListener('click', () => nudge(d.id, -1));
+    $('#insp-dup').addEventListener('click', () => duplicate(d.id));
+    $('#insp-del').addEventListener('click', () => remove(d.id));
+  }
+
+  function renderHeader() {
+    const nameEl = $('#rack-name');
+    if (document.activeElement !== nameEl) nameEl.value = state.name;
+    const sel = $('#rack-height');
+    const opts = HEIGHTS.includes(H()) ? HEIGHTS : HEIGHTS.concat(H()).sort((a, b) => a - b);
+    sel.innerHTML = opts.map((h) => '<option value="' + h + '"' + (h === H() ? ' selected' : '') + '>' + h + 'U</option>').join('');
+    $('#example-note').hidden = !state.example;
+  }
+
+  function render(opts) {
+    renderHeader(); renderRack(); renderStats(); renderList(); renderInspector(); updateUndo();
+    if (opts && opts.focus && selectedId) {
+      const el = document.querySelector('.device[data-id="' + selectedId + '"]');
+      if (el) el.focus({ preventScroll: true });
+    }
+  }
+
+  function select(id) {
+    selectedId = id;
+    $$('.device[data-id]').forEach((el) => el.classList.toggle('selected', el.dataset.id === id));
+    renderList(); renderInspector();
+  }
+
+  /* ---------- Actions ---------- */
+  function addDevice(h, u) {
+    if (u == null) u = firstFree(h);
+    if (u == null) { toast('No room left for a ' + h + 'U device.'); return; }
+    const d = { id: uid(), u, h, label: 'New ' + h + 'U device', kind: h === 1 ? 'network' : 'server' };
+    selectedId = d.id;
+    mutate(() => { state.devices.push(d); });
+    if (finePointer) { const lab = $('#insp-label'); if (lab) { lab.focus(); lab.select(); } }
+  }
+  function moveTo(id, u) {
+    const d = byId(id); if (!d || d.u === u) { select(id); return; }
+    selectedId = id;
+    mutate(() => { d.u = u; });
+  }
+  function nudge(id, dir) {
+    const d = byId(id); if (!d) return;
+    const u = d.u + dir;
+    if (!fits(u, d.h)) { toast(dir > 0 ? 'Already at the top of the rack.' : 'Already at the bottom of the rack.'); return; }
+    if (!free(u, d.h, id)) { toast('Something is in the way.'); return; }
+    mutate(() => { d.u = u; }, { focus: document.activeElement && document.activeElement.classList.contains('device') });
+  }
+  function resize(id, h) {
+    const d = byId(id); if (!d || d.h === h) return;
+    const top = d.u + d.h - 1;
+    let u = null;
+    if (free(d.u, h, id)) u = d.u;               // keep bottom, grow upward
+    else if (free(top - h + 1, h, id)) u = top - h + 1; // keep top, grow downward
+    if (u == null) { toast('Not enough free space around this device for ' + h + 'U.'); return; }
+    mutate(() => { d.u = u; d.h = h; });
+  }
+  function duplicate(id) {
+    const d = byId(id); if (!d) return;
+    const u = firstFree(d.h);
+    if (u == null) { toast('No room left for another ' + d.h + 'U device.'); return; }
+    const c = { id: uid(), u, h: d.h, label: d.label, kind: d.kind };
+    selectedId = c.id;
+    mutate(() => { state.devices.push(c); });
+  }
+  function remove(id) {
+    const d = byId(id); if (!d) return;
+    if (selectedId === id) selectedId = null;
+    mutate(() => { state.devices = state.devices.filter((x) => x.id !== id); });
+    toast('Removed “' + (d.label || 'Untitled') + '”.', true);
+  }
+
+  function startInlineEdit(id) {
+    const d = byId(id); const el = document.querySelector('.device[data-id="' + id + '"]');
+    if (!d || !el) return;
+    editing = true;
+    const tape = el.querySelector('.tape');
+    const input = document.createElement('input');
+    input.className = 'tape-input'; input.value = d.label; input.maxLength = 80;
+    input.setAttribute('aria-label', 'Device label');
+    tape.replaceWith(input);
+    input.focus(); input.select();
+    let done = false;
+    const finish = (commit) => {
+      if (done) return; done = true; editing = false;
+      const v = input.value.trim();
+      if (commit && v && v !== d.label) { selectedId = id; mutate(() => { d.label = v; }, { focus: true }); }
+      else render({ focus: true });
+    };
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') finish(true);
+      if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('pointerdown', (e) => e.stopPropagation());
+  }
+
+  /* ---------- Drag & snap ---------- */
+  function bayGeom() {
+    const r = $('#bay').getBoundingClientRect();
+    return { r, U: r.height / H() };
+  }
+
+  function onDevicePointerDown(e, id) {
+    if (editing || e.button !== 0) return;
+    const d = byId(id); if (!d) return;
+    if (selectedId !== id) select(id);
+    const r = e.currentTarget.getBoundingClientRect();
+    beginPointer(e, { type: 'device', id, h: d.h, kind: d.kind, label: d.label, el: e.currentTarget,
+      grabX: e.clientX - r.left, grabY: e.clientY - r.top });
+  }
+  function onTilePointerDown(e, h) {
+    if (e.button !== 0) return;
+    const { r, U } = bayGeom();
+    beginPointer(e, { type: 'palette', h, kind: h === 1 ? 'network' : 'server', label: 'New ' + h + 'U device',
+      el: e.currentTarget, grabX: r.width / 2, grabY: (h * U) / 2 });
+  }
+
+  function beginPointer(e, src) {
+    drag = Object.assign(src, { x0: e.clientX, y0: e.clientY, started: false, target: null, pid: e.pointerId });
+    try { src.el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  }
+
+  function startDrag() {
+    drag.started = true;
+    const { r, U } = bayGeom();
+    const g = document.createElement('div');
+    g.className = 'device ghost k-' + drag.kind;
+    g.style.setProperty('--u', U + 'px');
+    g.style.width = r.width + 'px';
+    g.style.height = (drag.h * U - 2) + 'px';
+    g.innerHTML = faceHTML({ label: drag.label, h: drag.h });
+    document.body.appendChild(g);
+    drag.ghost = g;
+    const snap = document.createElement('div');
+    snap.className = 'snap'; snap.hidden = true;
+    snap.style.setProperty('--h', drag.h);
+    $('#bay').appendChild(snap);
+    drag.snap = snap;
+    if (drag.type === 'device') drag.el.classList.add('lifting');
+    document.body.classList.add('dragging');
+  }
+
+  function moveDrag(e) {
+    const { r, U } = bayGeom();
+    const h = drag.h;
+    const inside = e.clientX > r.left - 90 && e.clientX < r.right + 90 &&
+                   e.clientY > r.top - U * 1.5 && e.clientY < r.bottom + U * 1.5;
+    const g = drag.ghost;
+    let hint = g.querySelector('.drop-hint');
+    if (inside) {
+      let row = Math.round((e.clientY - drag.grabY - r.top) / U);
+      row = Math.max(0, Math.min(H() - h, row));
+      const u = H() - row - h + 1;
+      const ok = free(u, h, drag.type === 'device' ? drag.id : null);
+      drag.target = { u, ok };
+      g.classList.remove('away');
+      g.style.left = r.left + 'px';
+      g.style.top = (r.top + row * U + 1) + 'px';
+      drag.snap.hidden = false;
+      drag.snap.style.setProperty('--row', row);
+      drag.snap.classList.toggle('bad', !ok);
+      if (hint) hint.remove();
+    } else {
+      drag.target = null;
+      g.classList.add('away');
+      g.style.left = (e.clientX - drag.grabX) + 'px';
+      g.style.top = (e.clientY - drag.grabY) + 'px';
+      drag.snap.hidden = true;
+      if (drag.type === 'device' && !hint) {
+        hint = document.createElement('span'); hint.className = 'drop-hint'; hint.textContent = 'Release to remove';
+        g.appendChild(hint);
+      }
+    }
+    // gentle autoscroll for tall racks
+    if (e.clientY < 50) window.scrollBy(0, -14);
+    else if (e.clientY > window.innerHeight - 50) window.scrollBy(0, 14);
+  }
+
+  function endDrag(e, cancelled) {
+    const d = drag; drag = null;
+    try { d.el.releasePointerCapture(d.pid); } catch (err) { /* ignore */ }
+    if (!d.started) {
+      if (!cancelled && d.type === 'palette') { d.suppress = true; lastTileTap = Date.now(); addDevice(d.h); }
+      return;
+    }
+    d.ghost.remove(); d.snap.remove();
+    document.body.classList.remove('dragging');
+    if (d.type === 'device') d.el.classList.remove('lifting');
+    lastTileTap = Date.now();
+    if (cancelled) return;
+    if (d.target && d.target.ok) {
+      if (d.type === 'palette') addDevice(d.h, d.target.u);
+      else moveTo(d.id, d.target.u);
+    } else if (d.target && !d.target.ok) {
+      toast('That spot overlaps another device.');
+    } else if (d.type === 'device') {
+      remove(d.id);
+    }
+  }
+
+  window.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    if (!drag.started) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
+      startDrag();
+    }
+    e.preventDefault();
+    moveDrag(e);
+  });
+  window.addEventListener('pointerup', (e) => { if (drag && e.pointerId === drag.pid) endDrag(e, false); });
+  window.addEventListener('pointercancel', (e) => { if (drag && e.pointerId === drag.pid) endDrag(e, true); });
+
+  /* ---------- Palette ---------- */
+  let lastTileTap = 0;
+  function renderPalette() {
+    $('#palette').innerHTML = SIZES.map((h) =>
+      '<button type="button" class="tile" data-h="' + h + '" aria-label="Add a ' + h + 'U device">' +
+        '<span class="tile-art"><span class="mini" style="height:' + (h * 11 + 1) + 'px"></span></span>' +
+        '<span class="tile-cap"><span class="tile-size">' + h + 'U</span><span class="tile-dim">' + inches(h) + '</span></span>' +
+      '</button>').join('');
+    $$('#palette .tile').forEach((t) => {
+      const h = Number(t.dataset.h);
+      t.addEventListener('pointerdown', (e) => onTilePointerDown(e, h));
+      // keyboard activation (pointer taps are handled on pointerup)
+      t.addEventListener('click', (e) => { if (Date.now() - lastTileTap > 400 && e.detail === 0) addDevice(h); });
+    });
+  }
+
+  /* ---------- Header controls ---------- */
+  let nameSnap = false;
+  $('#rack-name').addEventListener('focus', () => { nameSnap = false; });
+  $('#rack-name').addEventListener('input', (e) => {
+    if (!nameSnap) { snapshot(); nameSnap = true; }
+    state.name = e.target.value; save();
+    $('#cap-name').textContent = 'Front · ' + (state.name || 'Rack');
+  });
+  $('#rack-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
+
+  $('#rack-height').addEventListener('change', (e) => {
+    const nh = Number(e.target.value);
+    const tooHigh = state.devices.filter((d) => d.u + d.h - 1 > nh);
+    if (tooHigh.length) {
+      toast('Move or remove devices above U' + nh + ' first.');
+      e.target.value = String(H());
+      return;
+    }
+    mutate(() => { state.height = nh; });
+  });
+
+  $('#undo').addEventListener('click', undo);
+
+  let clearArmed = null;
+  $('#clear').addEventListener('click', () => {
+    const b = $('#clear');
+    if (!state.devices.length) { toast('The rack is already empty.'); return; }
+    if (!clearArmed) {
+      b.classList.add('armed'); b.textContent = 'Click again to clear';
+      clearArmed = setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Clear rack'; clearArmed = null; }, 3000);
+      return;
+    }
+    clearTimeout(clearArmed); clearArmed = null;
+    b.classList.remove('armed'); b.textContent = 'Clear rack';
+    selectedId = null;
+    mutate(() => { state.devices = []; state.example = false; });
+    toast('Rack cleared.', true);
+  });
+
+  $('#keep-example').addEventListener('click', () => { state.example = false; save(); renderHeader(); });
+  $('#start-fresh').addEventListener('click', () => {
+    selectedId = null;
+    mutate(() => { state.devices = []; state.example = false; state.name = 'My rack'; });
+  });
+
+  /* ---------- Save & load ---------- */
+  function ioMsg(text, err) { const m = $('#io-msg'); m.textContent = text; m.hidden = !text; m.classList.toggle('err', !!err); }
+  function exportJSON() {
+    return JSON.stringify({
+      name: state.name, height: state.height,
+      devices: state.devices.slice().sort((a, b) => b.u - a.u).map((d) => ({ u: d.u, h: d.h, label: d.label, kind: d.kind }))
+    }, null, 2);
+  }
+  $('#copy-json').addEventListener('click', () => {
+    const text = exportJSON();
+    const ta = $('#io-text');
+    const fallback = () => {
+      ta.hidden = false; ta.readOnly = true; ta.value = text; $('#import-actions').hidden = true;
+      ta.focus(); ta.select();
+      ioMsg('Copy the selected text to save your layout.');
+    };
+    try {
+      navigator.clipboard.writeText(text).then(() => { ta.hidden = true; ioMsg('Layout copied to your clipboard.'); }, fallback);
+    } catch (err) { fallback(); }
+  });
+  $('#show-import').addEventListener('click', () => {
+    const ta = $('#io-text');
+    ta.hidden = false; ta.readOnly = false; ta.value = ''; ta.placeholder = 'Paste a layout you copied earlier';
+    $('#import-actions').hidden = false; ioMsg(''); ta.focus();
+  });
+  $('#cancel-import').addEventListener('click', () => { $('#io-text').hidden = true; $('#import-actions').hidden = true; ioMsg(''); });
+  $('#do-import').addEventListener('click', () => {
+    let parsed = null;
+    try { parsed = normalize(JSON.parse($('#io-text').value)); } catch (err) { parsed = null; }
+    if (!parsed) { ioMsg('That text isn’t a valid layout. Paste the full text from “Copy layout”, and check that no devices overlap.', true); return; }
+    parsed.example = false;
+    selectedId = null;
+    mutate(() => { state = parsed; });
+    $('#io-text').hidden = true; $('#import-actions').hidden = true;
+    ioMsg('Layout loaded.');
+  });
+
+  /* ---------- Keyboard & misc ---------- */
+  $('#bay').addEventListener('pointerdown', (e) => { if (e.target.id === 'bay') select(null); });
+
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); undo(); return; }
+    if (typing || editing || !selectedId) return;
+    if (e.key === 'ArrowUp') { e.preventDefault(); nudge(selectedId, 1); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); nudge(selectedId, -1); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove(selectedId); }
+    else if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('device')) { e.preventDefault(); startInlineEdit(selectedId); }
+    else if (e.key === 'Escape') { select(null); }
+  });
+
+  let resizeT = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(() => $('#rack').style.setProperty('--u', unitPx() + 'px'), 80);
+  });
+
+  renderPalette();
+  render();
+})();
+</script>
