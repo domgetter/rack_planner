@@ -40,6 +40,7 @@
   --tape-ink: #111315;
   --led: #5ad38c;
   --screw-hi: #d3d8dd;
+  --hover-ring: #ffffff;
   --screw: #8b939b;
   --screw-rim: #2b3035;
   /* ear geometry: how far each ear reaches over the rail, and where the hole centre sits from the bay edge */
@@ -379,20 +380,34 @@ select.btn { padding-right: 8px; }
 .portgrid .port { position: relative; min-width: 0; }
 .portgrid.patch .port { box-shadow: 0 0 0 1.5px var(--port-rim); }
 .port.plugged { background: var(--plug); box-shadow: inset 0 calc(var(--u) * .08) 0 rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.5); }
-.cable-mode .device { cursor: default; }
-.cable-mode .port { cursor: crosshair; }
-.cable-mode .port::before { content: ""; position: absolute; inset: -3px -2px; }
-.cable-mode .port:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.device .port { cursor: crosshair; }
+.device .port::before { content: ""; position: absolute; inset: -3px -2px; }
+.device:not(.place-ghost) .port:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
 .port.pending { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--accent); }
 .port.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
 .cables { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; z-index: 3; }
 .cables path { fill: none; stroke-linecap: round; }
 .cables .hit { stroke: transparent; }
-.cable-mode .cables .hit { pointer-events: stroke; cursor: pointer; }
+.cables .hit { pointer-events: stroke; cursor: pointer; }
+body.dragging .cables .hit { pointer-events: none; }
 .cables .halo { stroke: var(--accent); opacity: .7; }
+.cables .hover-halo { stroke: var(--hover-ring); }
 .cables .temp { stroke: var(--accent); stroke-dasharray: 5 4; opacity: .9; }
 body.dragging .cables { opacity: .2; }
 .snap { z-index: 4; }
+/* White outline for the slot under the mouse in the elevation list; it sits exactly over the orange selection outline */
+/* See-through preview of a New Equipment item at the slot it would drop into */
+.device.place-ghost {
+  pointer-events: none; z-index: 5; opacity: .5;
+  outline: 2px dashed var(--hover-ring); outline-offset: 1px;
+}
+.hover-mark {
+  position: absolute; pointer-events: none; z-index: 6; box-sizing: border-box;
+  top: calc(var(--row) * var(--u) - 2px); height: calc(var(--h) * var(--u) + 4px);
+  left: calc(-1 * var(--ear-out) - 3px); right: calc(-1 * var(--ear-out) - 3px);
+  border: 2px solid var(--hover-ring); border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), inset 0 0 0 1px rgba(0,0,0,.25);
+}
 .snap.swap-dest { z-index: 5; }
 
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
@@ -409,7 +424,19 @@ body.dragging .cables { opacity: .2; }
 }
 .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
 .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; margin-left: auto; }
-.mode-hint { margin: 0; font-size: 13px; color: var(--ink); padding: 8px 12px; border-radius: 7px; border: 1px dashed var(--accent); }
+.tool-label { font: 600 13px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+/* Floating hint while a cable is half-drawn; fixed so the rack never shifts under the pointer */
+.cable-hint {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 1100;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-width: calc(100% - 32px);
+  display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 14px; border-radius: 8px;
+  background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 500;
+  box-shadow: 0 10px 24px rgba(0,0,0,.25);
+}
+.cable-hint button {
+  font: inherit; font-size: 13px; color: inherit; background: transparent; cursor: pointer;
+  border: 1px solid currentColor; border-radius: 5px; padding: 4px 9px;
+}
 .port-no { font: 500 12px/1 var(--font-mono); color: var(--muted); }
 .cable-ends { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 14px; font-weight: 500; }
 .cable-arrow { color: var(--accent); font-weight: 600; }
@@ -417,6 +444,17 @@ body.dragging .cables { opacity: .2; }
 .pfp .input { min-width: 0; flex: 1; }
 .field-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
 .x-col { width: 1%; text-align: right; }
+.chip-btn {
+  font: inherit; font-size: 13px; color: inherit; border: 1px solid transparent; background: transparent;
+  padding: 3px 6px; margin: -4px -7px; border-radius: 5px; cursor: pointer;
+}
+.chip-btn:hover { background: var(--bg); border-color: var(--line); }
+.chip-btn .caret { font-size: 10px; color: var(--muted); }
+.color-pop {
+  position: fixed; z-index: 1200; width: 170px; padding: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.25);
+}
 .x-btn { border: 0; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
 .x-btn:hover { color: var(--bad); background: var(--bg); }
 label.btn:has(+ #open-file:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -599,14 +637,10 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       <div class="stats" id="stats"></div>
       <div class="meter" id="meter" aria-hidden="true"></div>
       <div class="toolbar">
-        <div class="mode" role="group" aria-label="Mode">
-          <button type="button" id="mode-arrange" aria-pressed="true">Arrange</button>
-          <button type="button" id="mode-cable" aria-pressed="false">Cables</button>
-        </div>
-        <div id="swatches" hidden></div>
+        <span class="tool-label">Cable color</span>
+        <div id="swatches"></div>
         <label class="check" for="show-cables"><input type="checkbox" id="show-cables" checked> Show cables</label>
       </div>
-      <p class="mode-hint" id="mode-hint" hidden></p>
       <div class="rack" id="rack">
         <div class="rack-cap"><span id="cap-name">Front</span><span id="cap-size">16U</span></div>
         <div class="rack-body">
@@ -658,6 +692,10 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   </div>
 
   <div class="toast" id="toast" role="status" hidden></div>
+  <div class="cable-hint" id="cable-hint" role="status" hidden>
+    <span>Click the port at the other end. Press Esc to cancel.</span>
+    <button type="button" id="cable-cancel">Cancel</button>
+  </div>
 </div>
 
 <script>
@@ -818,7 +856,6 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   if (!Array.isArray(state.cables)) state.cables = [];
   let selectedId = null;
   let selectedCableId = null;
-  let cableMode = false;
   let pendingPort = null;      // first end of a cable being drawn
   let cableColor = 'blue';
   let showCables = true;
@@ -1036,17 +1073,103 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       el.style.setProperty('--row', H() - (d.u + d.h - 1));
       el.style.setProperty('--h', d.h);
       el.innerHTML = faceHTML(d);
-      el.addEventListener('pointerdown', (e) => onDevicePointerDown(e, d.id));
-      el.addEventListener('dblclick', () => startInlineEdit(d.id));
-      el.addEventListener('focus', () => { if (selectedId !== d.id && !cableMode) select(d.id); });
+      el.addEventListener('dblclick', (e) => { if (!e.target.closest('.port')) startInlineEdit(d.id); });
+      // keyboard focus selects; mouse presses are handled by the bay (click vs drag)
+      el.addEventListener('focus', () => { if (selectedId !== d.id && el.matches(':focus-visible')) select(d.id); });
       bay.appendChild(el);
     });
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'cables');
     svg.id = 'cables';
     bay.appendChild(svg);
-    rack.classList.toggle('cable-mode', cableMode);
     drawCables();
+    drawHoverMark();
+    drawPlacementGhost();
+  }
+
+  /* ---------- Placement preview while hovering New Equipment ---------- */
+  let placeSpec = null; // the palette item under the mouse
+  function drawPlacementGhost() {
+    const bay = $('#bay');
+    let g = bay.querySelector('.place-ghost');
+    const u = placeSpec && !(drag && drag.started) ? firstFree(placeSpec.h) : null;
+    if (u == null) { if (g) g.remove(); return; }   // nothing hovered, mid-drag, or no room
+    if (!g) { g = document.createElement('div'); bay.appendChild(g); }
+    g.className = 'device place-ghost k-' + placeSpec.kind;
+    g.setAttribute('aria-hidden', 'true');
+    g.style.setProperty('--row', H() - (u + placeSpec.h - 1));
+    g.style.setProperty('--h', placeSpec.h);
+    g.innerHTML = faceHTML(placeSpec);
+  }
+  function setPlaceSpec(spec) {
+    if (placeSpec === spec) return;
+    placeSpec = spec;
+    drawPlacementGhost();
+  }
+
+  /* ---------- Patch-schedule hover outline & recolor popover ---------- */
+  let hoverCableId = null;
+  function setHoverCable(id) {
+    if (hoverCableId === id) return;
+    hoverCableId = id;
+    drawCables();
+  }
+  let colorPop = null;
+  function closeColorPop() {
+    if (!colorPop) return;
+    colorPop.el.remove();
+    document.removeEventListener('pointerdown', colorPop.outside, true);
+    window.removeEventListener('scroll', closeColorPop, true);
+    window.removeEventListener('resize', closeColorPop);
+    colorPop = null;
+  }
+  function openColorPop(cableId, anchor) {
+    const c = state.cables.find((x) => x.id === cableId); if (!c) return;
+    const reopen = colorPop && colorPop.id === cableId;
+    closeColorPop();
+    if (reopen) return; // clicking the same color button again just closes it
+    const el = document.createElement('div');
+    el.className = 'color-pop';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', 'Cable color');
+    el.innerHTML = swatchesHTML(c.color, 'pop-');
+    document.body.appendChild(el);
+    const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+    const top = r.bottom + 6 + h > window.innerHeight - 8 ? r.top - 6 - h : r.bottom + 6;
+    el.style.left = left + 'px'; el.style.top = Math.max(8, top) + 'px';
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('.swatch'); if (!b) return;
+      closeColorPop();
+      if (c.color !== b.dataset.color) mutate(() => { c.color = b.dataset.color; });
+    });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); closeColorPop(); anchor.focus(); }
+    });
+    const outside = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closeColorPop(); };
+    document.addEventListener('pointerdown', outside, true);
+    window.addEventListener('scroll', closeColorPop, true);
+    window.addEventListener('resize', closeColorPop);
+    colorPop = { id: cableId, el, outside };
+    const cur = el.querySelector('.swatch[aria-pressed="true"]') || el.querySelector('.swatch');
+    if (cur) cur.focus({ preventScroll: true });
+  }
+
+  /* ---------- Elevation-list hover outline ---------- */
+  let hoverRange = null; // { u, h } of the row under the mouse
+  function drawHoverMark() {
+    const bay = $('#bay');
+    let mark = bay.querySelector('.hover-mark');
+    if (!hoverRange || hoverRange.u + hoverRange.h - 1 > H()) { if (mark) mark.remove(); return; }
+    if (!mark) { mark = document.createElement('div'); mark.className = 'hover-mark'; bay.appendChild(mark); }
+    mark.style.setProperty('--row', H() - (hoverRange.u + hoverRange.h - 1));
+    mark.style.setProperty('--h', hoverRange.h);
+  }
+  function setHover(range) {
+    const same = range && hoverRange && range.u === hoverRange.u && range.h === hoverRange.h;
+    if (same || (!range && !hoverRange)) return;
+    hoverRange = range;
+    drawHoverMark();
   }
 
   /* ---------- Cable drawing ---------- */
@@ -1073,14 +1196,19 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const sw = Math.max(2, U * 0.075);
     let out = '';
     if (showCables) {
-      for (const c of state.cables) {
+      // the cable hovered in the patch schedule is drawn last so its outline sits on top
+      const ordered = state.cables.filter((c) => c.id !== hoverCableId)
+        .concat(state.cables.filter((c) => c.id === hoverCableId));
+      for (const c of ordered) {
         const pa = portCenter(c.a, br), pb = portCenter(c.b, br);
         if (!pa || !pb) continue;
         const d = cablePath(pa, pb, U);
         const sel = c.id === selectedCableId;
+        const hov = c.id === hoverCableId;
         const edge = c.color === 'black' ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.55)';
         out += '<g class="cable' + (sel ? ' sel' : '') + '" data-cable="' + c.id + '">' +
-          (sel ? '<path class="halo" d="' + d + '" stroke-width="' + (sw + 7) + '"/>' : '') +
+          (hov ? '<path class="hover-halo" d="' + d + '" stroke-width="' + (sw + 7) + '"/>'
+               : sel ? '<path class="halo" d="' + d + '" stroke-width="' + (sw + 7) + '"/>' : '') +
           '<path class="edge" d="' + d + '" stroke="' + edge + '" stroke-width="' + (sw + 2) + '"/>' +
           '<path class="core" d="' + d + '" stroke="' + colorHex(c.color) + '" stroke-width="' + sw + '"/>' +
           '<path class="hit" d="' + d + '" stroke-width="' + (sw + 6) + '"/></g>';
@@ -1118,7 +1246,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     while (u >= 1) {
       const d = state.devices.find((x) => x.u + x.h - 1 === u);
       if (d) {
-        rows.push('<tr class="dev-row' + (d.id === selectedId ? ' selected' : '') + '" data-id="' + d.id + '">' +
+        rows.push('<tr class="dev-row' + (d.id === selectedId ? ' selected' : '') + '" data-id="' + d.id + '" data-u="' + d.u + '" data-h="' + d.h + '">' +
           '<td class="pos-col">' + posLabel(d) + '</td>' +
           '<td class="dev-name">' + (labelOf(d) ? esc(labelOf(d)) : '<span class="unlabeled">' + esc(faceName(d.face)) + '</span>') + '</td>' +
           '<td>' + d.h + 'U</td>' +
@@ -1129,7 +1257,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
         let bottom = u;
         while (bottom - 1 >= 1 && !state.devices.some((x) => bottom - 1 >= x.u && bottom - 1 <= x.u + x.h - 1)) bottom--;
         const h = u - bottom + 1;
-        rows.push('<tr class="gap-row"><td class="pos-col">' + (h === 1 ? 'U' + u : 'U' + bottom + '–U' + u) + '</td><td>Empty</td><td>' + h + 'U</td><td></td><td></td></tr>');
+        rows.push('<tr class="gap-row" data-u="' + bottom + '" data-h="' + h + '"><td class="pos-col">' + (h === 1 ? 'U' + u : 'U' + bottom + '–U' + u) + '</td><td>Empty</td><td>' + h + 'U</td><td></td><td></td></tr>');
         u = bottom - 1;
       }
     }
@@ -1158,19 +1286,21 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   function renderCableList() {
     const body = $('#cable-list');
     if (!state.cables.length) {
-      body.innerHTML = '<tr class="gap-row"><td colspan="4">No cables yet. Switch to Cables above the rack, then click two ports.</td></tr>';
+      body.innerHTML = '<tr class="gap-row"><td colspan="4">No cables yet. Click a port in the rack, then click the port at the other end.</td></tr>';
       return;
     }
     body.innerHTML = sortedCables().map(({ c, from, to }) =>
       '<tr class="dev-row' + (c.id === selectedCableId ? ' selected' : '') + '" data-cable="' + c.id + '">' +
         '<td class="dev-name">' + esc(endName(from)) + ' <span class="port-no">' + (from.port + 1) + '</span></td>' +
         '<td class="dev-name">' + esc(endName(to)) + ' <span class="port-no">' + (to.port + 1) + '</span></td>' +
-        '<td><span class="chip" style="--c:' + colorHex(c.color) + '">' + colorName(c.color) + '</span></td>' +
+        '<td><button type="button" class="chip chip-btn" style="--c:' + colorHex(c.color) + '" data-recolor="' + c.id + '" aria-haspopup="true" aria-label="Change color, now ' + colorName(c.color) + '">' + colorName(c.color) + '<span class="caret" aria-hidden="true">▾</span></button></td>' +
         '<td class="x-col"><button type="button" class="x-btn" data-del="' + c.id + '" aria-label="Remove cable">×</button></td>' +
       '</tr>').join('');
     $$('#cable-list tr.dev-row').forEach((tr) => tr.addEventListener('click', (e) => {
       const del = e.target.closest('[data-del]');
       if (del) { removeCable(del.dataset.del); return; }
+      const rc = e.target.closest('[data-recolor]');
+      if (rc) { openColorPop(rc.dataset.recolor, rc); return; }
       selectCable(tr.dataset.cable);
     }));
   }
@@ -1204,8 +1334,8 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     if (cab) { renderCableInspector(box, cab); return; }
     const d = selectedId && byId(selectedId);
     if (!d) {
-      box.innerHTML = '<h2>Selected device</h2><p class="empty-inspect">Click a device in the rack to rename it, change its size or type, or move it.</p>' +
-        '<p class="kbd-hint">Double-click a device to edit its label in place. Drag a device off the rack to remove it.</p>';
+      box.innerHTML = '<h2>Selected device</h2><p class="empty-inspect">Click a device in the rack to select it, or drag it to move it.</p>' +
+        '<p class="kbd-hint">Click a port to start a cable, then click the port at the other end. Click a cable to select it. Double-click a device to rename it. Drag a device off the rack to remove it.</p>';
       return;
     }
     const kindOpts = KINDS.map((k) => '<option value="' + k.id + '"' + (k.id === d.kind ? ' selected' : '') + '>' + k.name + '</option>').join('');
@@ -1315,6 +1445,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     toast('Removed cable.', true);
   }
   function onPortClick(end) {
+    if (!showCables) { showCables = true; $('#show-cables').checked = true; }
     const existing = cableAt(end);
     if (!pendingPort) {
       if (existing) { selectCable(existing.id); return; }
@@ -1354,25 +1485,14 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     box.innerHTML = swatchesHTML(cableColor, 'sw-');
     $$('#swatches .swatch').forEach((b) => b.addEventListener('click', () => {
       cableColor = b.dataset.color;
+      // a selected cable takes the new color too
+      const sel = selectedCableId && state.cables.find((c) => c.id === selectedCableId);
+      if (sel && sel.color !== cableColor) mutate(() => { sel.color = cableColor; });
       renderSwatches();
     }));
   }
   function renderModeHint() {
-    const hint = $('#mode-hint');
-    hint.hidden = !cableMode;
-    if (!cableMode) return;
-    hint.textContent = pendingPort
-      ? 'Now click the port at the other end. Press Esc to cancel.'
-      : 'Click a port, then click the port it connects to. Click a cable or plugged port to select it.';
-  }
-  function setCableMode(on) {
-    cableMode = on;
-    pendingPort = null;
-    $('#mode-arrange').setAttribute('aria-pressed', String(!on));
-    $('#mode-cable').setAttribute('aria-pressed', String(on));
-    $('#swatches').hidden = !on;
-    if (on && !showCables) { showCables = true; $('#show-cables').checked = true; }
-    renderRack(); renderModeHint();
+    $('#cable-hint').hidden = !pendingPort;
   }
 
   /* ---------- Actions ---------- */
@@ -1462,19 +1582,6 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     return { r, U: r.height / H() };
   }
 
-  function onDevicePointerDown(e, id) {
-    if (editing || e.button !== 0) return;
-    const d = byId(id); if (!d) return;
-    if (cableMode) {
-      // ports are handled by the bay's click handler; anything else just selects the device
-      if (!e.target.closest('.port')) { if (pendingPort) cancelPending(); if (selectedId !== id) select(id); }
-      return;
-    }
-    if (selectedId !== id) select(id);
-    const r = e.currentTarget.getBoundingClientRect();
-    beginPointer(e, { type: 'device', id, h: d.h, kind: d.kind, label: d.label, face: d.face, el: e.currentTarget,
-      grabX: e.clientX - r.left, grabY: e.clientY - r.top });
-  }
   function onTilePointerDown(e, spec) {
     if (e.button !== 0) return;
     const { r, U } = bayGeom();
@@ -1495,6 +1602,17 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 
   function startDrag(e) {
     drag.started = true;
+    setPlaceSpec(null);
+    if (drag.type === 'device') {
+      if (pendingPort) {
+        pendingPort = null;
+        $$('.port.pending').forEach((p) => p.classList.remove('pending'));
+        drawTempCable(null); renderModeHint();
+      }
+      selectedId = drag.id; selectedCableId = null;
+      $$('.device[data-id]').forEach((el) => el.classList.toggle('selected', el.dataset.id === drag.id));
+      drawCables(); renderList(); renderInspector();
+    }
     drag.marks = [];
     const { r, U } = bayGeom();
     const g = document.createElement('div');
@@ -1575,7 +1693,11 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const d = drag; drag = null;
     try { d.el.releasePointerCapture(d.pid); } catch (err) { /* ignore */ }
     if (!d.started) {
-      if (!cancelled && d.type === 'palette') { d.suppress = true; lastTileTap = Date.now(); addDevice(d.spec); }
+      if (cancelled) return;
+      if (d.type === 'palette') { lastTileTap = Date.now(); addDevice(d.spec); }
+      else if (d.clickPort) onPortClick(d.clickPort);
+      else if (d.clickCable) { if (pendingPort) cancelPending(); selectCable(d.clickCable); }
+      else { if (pendingPort) cancelPending(); if (selectedId !== d.id || selectedCableId) select(d.id); }
       return;
     }
     d.ghost.remove(); d.snap.remove();
@@ -1630,6 +1752,11 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       '</button>').join('');
     const wire = (t, spec) => {
       t.addEventListener('pointerdown', (e) => onTilePointerDown(e, spec));
+      // preview where it would land (mouse hover or keyboard focus; not on touch)
+      t.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && !(drag && drag.started)) setPlaceSpec(spec); });
+      t.addEventListener('pointerleave', () => { if (placeSpec === spec) setPlaceSpec(null); });
+      t.addEventListener('focus', () => { if (t.matches(':focus-visible')) setPlaceSpec(spec); });
+      t.addEventListener('blur', () => { if (placeSpec === spec) setPlaceSpec(null); });
       // keyboard activation (pointer taps are handled on pointerup)
       t.addEventListener('click', (e) => { if (Date.now() - lastTileTap > 400 && e.detail === 0) addDevice(spec); });
     };
@@ -1818,22 +1945,38 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 
   /* ---------- Keyboard & misc ---------- */
   $('#bay').addEventListener('pointerdown', (e) => {
-    if (e.target.id === 'bay') { if (pendingPort) cancelPending(); select(null); }
-  });
-  $('#bay').addEventListener('click', (e) => {
-    if (!cableMode) return;
-    // A port under the pointer wins over a cable draped across it
+    if (editing || e.button !== 0 || e.target.closest('.tape-input')) return;
+    // look through cables to whatever is underneath; a port under the pointer wins over a cable
     const under = document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [e.target];
-    const p = under.find((el) => el.matches && el.matches('.port[data-port]')) || e.target.closest('.port[data-port]');
+    const portEl = under.find((el) => el.matches && el.matches('.port[data-port]'));
+    const devEl = under.find((el) => el.matches && el.matches('.device[data-id]'));
     const cab = e.target.closest('.cable[data-cable]');
-    if (!p && cab) { if (pendingPort) cancelPending(); selectCable(cab.dataset.cable); return; }
-    const dev = p && p.closest('.device[data-id]');
-    if (p && dev) onPortClick({ dev: dev.dataset.id, port: Number(p.dataset.port) });
+    if (devEl) {
+      const d = byId(devEl.dataset.id); if (!d) return;
+      const r = devEl.getBoundingClientRect();
+      const port = portEl && devEl.contains(portEl) ? { dev: d.id, port: Number(portEl.dataset.port) } : null;
+      beginPointer(e, { type: 'device', id: d.id, h: d.h, kind: d.kind, label: d.label, face: d.face, el: devEl,
+        grabX: e.clientX - r.left, grabY: e.clientY - r.top,
+        clickPort: port, clickCable: !port && cab ? cab.dataset.cable : null });
+      return;
+    }
+    if (cab) { if (pendingPort) cancelPending(); selectCable(cab.dataset.cable); return; }
+    if (pendingPort) cancelPending();
+    select(null);
   });
-  $('#bay').addEventListener('pointermove', (e) => { if (cableMode && pendingPort) drawTempCable(e); });
+  $('#list').addEventListener('mouseover', (e) => {
+    const tr = e.target.closest('tr[data-u]');
+    if (tr) setHover({ u: Number(tr.dataset.u), h: Number(tr.dataset.h) });
+  });
+  $('#list').addEventListener('mouseleave', () => setHover(null));
+  $('#cable-list').addEventListener('mouseover', (e) => {
+    const tr = e.target.closest('tr[data-cable]');
+    if (tr) setHoverCable(tr.dataset.cable);
+  });
+  $('#cable-list').addEventListener('mouseleave', () => setHoverCable(null));
+  $('#bay').addEventListener('pointermove', (e) => { if (pendingPort && !drag) drawTempCable(e); });
   $('#bay').addEventListener('pointerleave', () => drawTempCable(null));
-  $('#mode-arrange').addEventListener('click', () => setCableMode(false));
-  $('#mode-cable').addEventListener('click', () => setCableMode(true));
+  $('#cable-cancel').addEventListener('click', cancelPending);
   $('#show-cables').addEventListener('change', (e) => { showCables = e.target.checked; drawCables(); });
   if (window.ResizeObserver) new ResizeObserver(() => drawCables()).observe($('#bay'));
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawCables());
