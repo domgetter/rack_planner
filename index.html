@@ -18,6 +18,7 @@
   --line: #ccd3d9;
   --accent: #c47a1f;
   --accent-ink: #ffffff;
+  --accent-bg: rgba(196, 122, 31, 0.22);
   --ok: #2f9e66;
   --ok-bg: rgba(63, 191, 127, 0.18);
   --bad: #d6463e;
@@ -38,6 +39,13 @@
   --tape: #f2f0e6;
   --tape-ink: #111315;
   --led: #5ad38c;
+  --port: #111315;
+  --port-rim: #7b848d;
+  --console: #3d7cc4;
+  --lcd: #a7d9a4;
+  --lcd-ink: #22402a;
+  --seg: #ff6b4a;
+  --seg-bg: #140907;
 
   --k-server: #4f8fd6;
   --k-network: #2db39e;
@@ -53,14 +61,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #111417; --panel: #191d21; --ink: #e2e6ea; --muted: #97a1aa; --line: #2b3137;
-    --accent: #e6a14a; --accent-ink: #1b1206; --ok: #4fcf8c; --bad: #f0675f;
+    --accent: #e6a14a; --accent-ink: #1b1206; --accent-bg: rgba(230, 161, 74, 0.24); --ok: #4fcf8c; --bad: #f0675f;
     --frame: #0d0f11; --frame-hi: #1b1f23; --rail: #2b3136; --bay: #08090b; --bay-line: #171b1f;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #111417; --panel: #191d21; --ink: #e2e6ea; --muted: #97a1aa; --line: #2b3137;
-  --accent: #e6a14a; --accent-ink: #1b1206; --ok: #4fcf8c; --bad: #f0675f;
+  --accent: #e6a14a; --accent-ink: #1b1206; --accent-bg: rgba(230, 161, 74, 0.24); --ok: #4fcf8c; --bad: #f0675f;
   --frame: #0d0f11; --frame-hi: #1b1f23; --rail: #2b3136; --bay: #08090b; --bay-line: #171b1f;
   color-scheme: dark;
 }
@@ -147,7 +155,16 @@ select.btn { padding-right: 8px; }
 .hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 
 /* Palette */
-.palette { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.palette { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.palette .tile { padding: 8px; }
+.palette .tile-cap { flex-direction: column; align-items: flex-start; gap: 3px; }
+.sub { margin: 16px 0 8px; font: 600 13px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--ink); }
+.gear { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.gear .tile { padding: 8px; gap: 6px; }
+.gear-art { --u: 16px; display: flex; align-items: flex-end; height: 32px; }
+.gear-name { font: 500 13px/1.2 var(--font-body); }
+.gear-size { font: 400 11px/1 var(--font-mono); color: var(--muted); }
+.gear .tile-cap { align-items: baseline; }
 .tile {
   touch-action: none; user-select: none; -webkit-user-select: none;
   display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: left;
@@ -257,12 +274,95 @@ select.btn { padding-right: 8px; }
 .leds i { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--led); box-shadow: 0 0 5px var(--led); }
 .leds i + i { background: var(--kind); box-shadow: 0 0 5px var(--kind); }
 
+/* Equipment faces. Every size is in U so faces scale with the rack. */
+.face.has-art .tape { max-width: 45%; flex: 0 0 auto; }
+.palette .tile-dim { white-space: nowrap; font-size: 10px; }
+.art { min-width: 0; overflow: hidden; }
+.art.wrap {
+  flex: 1 1 0; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start;
+  column-gap: calc(var(--u) * .2); align-self: center;
+}
+.pgroup {
+  display: grid; grid-auto-flow: column;
+  grid-template-rows: repeat(var(--rows), calc(var(--u) * .26));
+  grid-auto-columns: calc(var(--u) * .22);
+  gap: calc(var(--u) * .08) calc(var(--u) * .06);
+}
+.port { display: block; background: var(--port); border-radius: 1px; box-shadow: inset 0 calc(var(--u) * .06) 0 rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.07); }
+.patch .pgroup { grid-template-rows: calc(var(--u) * .3); gap: calc(var(--u) * .1); }
+.patch .port { box-shadow: 0 0 0 1.5px var(--port-rim); }
+.ports-fixed { display: flex; align-items: center; gap: calc(var(--u) * .2); flex: 0 1 auto; }
+.console { display: block; flex: none; width: calc(var(--u) * .22); height: calc(var(--u) * .26); border-radius: 1px; background: var(--console); }
+.sfp { display: flex; gap: calc(var(--u) * .06); flex: none; }
+.sfp i { display: block; width: calc(var(--u) * .3); height: calc(var(--u) * .2); background: var(--port); box-shadow: 0 0 0 1px var(--port-rim); }
+.hdd {
+  display: block; position: relative; border-radius: 1px;
+  background: linear-gradient(to bottom, var(--face-lo), var(--rail));
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.hdd::after {
+  content: ""; position: absolute; width: calc(var(--u) * .07); height: calc(var(--u) * .07); border-radius: 50%;
+  background: var(--led); right: calc(var(--u) * .05); bottom: calc(var(--u) * .06);
+}
+.bays.sm { column-gap: calc(var(--u) * .06); }
+.bays.sm .hdd { width: calc(var(--u) * .22); height: calc(var(--u) * .72); }
+.bays.lg { column-gap: calc(var(--u) * .08); }
+.bays.lg .hdd { width: calc(var(--u) * 1.3); height: calc(var(--u) * .46); }
+.art.limit.sm { flex: 0 1 calc(var(--u) * 2.9); }
+.art.limit.lg { flex: 0 1 calc(var(--u) * 5.6); }
+.face .vents.small { flex: 0 1 calc(var(--u) * 1.6); margin-block: calc(var(--u) * .2); }
+.lcd {
+  flex: none; display: flex; align-items: flex-end; gap: calc(var(--u) * .05);
+  height: calc(var(--u) * .5); padding: calc(var(--u) * .07) calc(var(--u) * .1);
+  background: var(--lcd); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.4);
+}
+.lcd i { display: block; width: calc(var(--u) * .1); background: var(--lcd-ink); }
+.lcd i:nth-child(1) { height: 40%; } .lcd i:nth-child(2) { height: 60%; }
+.lcd i:nth-child(3) { height: 80%; } .lcd i:nth-child(4) { height: 100%; }
+.btns { display: flex; gap: calc(var(--u) * .12); flex: none; }
+.btns i { display: block; width: calc(var(--u) * .26); height: calc(var(--u) * .26); border-radius: 50%; background: var(--face-lo); box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.1); }
+.seg7 {
+  flex: none; font: 500 calc(var(--u) * .3)/1 var(--font-mono); color: var(--seg); background: var(--seg-bg);
+  padding: calc(var(--u) * .06) calc(var(--u) * .1); border-radius: 2px; letter-spacing: .05em;
+}
+.outlets { column-gap: calc(var(--u) * .14); }
+.outlet {
+  display: block; width: calc(var(--u) * .36); height: calc(var(--u) * .5); border-radius: calc(var(--u) * .07);
+  background: linear-gradient(to right, transparent 26%, var(--port-rim) 26% 38%, transparent 38% 62%, var(--port-rim) 62% 74%, transparent 74%) center / 100% 36% no-repeat, var(--port);
+}
+.brush {
+  flex: 1; min-width: 0; height: calc(var(--u) * .42); border-radius: 2px; position: relative;
+  background: repeating-linear-gradient(to right, var(--hole) 0 1px, var(--face-lo) 1px 3px);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.6);
+}
+.brush::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(0,0,0,.85); }
+.perf {
+  flex: 1; min-width: 0; align-self: stretch; margin-block: calc(var(--u) * .14);
+  background: radial-gradient(circle, var(--hole) 0 calc(var(--u) * .05), transparent calc(var(--u) * .065)) 0 0 / calc(var(--u) * .18) calc(var(--u) * .18);
+}
+.face.f-shelf {
+  align-items: flex-end; padding-bottom: calc(var(--u) * .24);
+  background: linear-gradient(to bottom, rgba(0,0,0,.35), rgba(0,0,0,.15));
+  box-shadow: inset 0 calc(var(--u) * -.16) 0 var(--face-hi), inset 0 calc(var(--u) * -.2) 0 rgba(0,0,0,.45);
+}
+.face.f-blank { background: linear-gradient(to bottom, var(--face), var(--face-lo)); }
+
+.device.preview { position: relative; top: auto; left: auto; right: auto; width: 100%; cursor: inherit; pointer-events: none; }
+.device.preview .tape { display: none; }
+
 .snap {
   position: absolute; left: 0; right: 0; pointer-events: none; z-index: 3;
   top: calc(var(--row) * var(--u) + 1px); height: calc(var(--h) * var(--u) - 2px);
   border: 2px dashed var(--ok); background: var(--ok-bg); border-radius: 2px;
 }
 .snap.bad { border-color: var(--bad); background: var(--bad-bg); }
+.snap.swap { border-color: var(--accent); background: var(--accent-bg); }
+.snap.swap-dest {
+  border-color: var(--accent); background: var(--accent-bg); z-index: 4;
+  display: flex; align-items: center; justify-content: center;
+  font: 600 12px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--tape);
+}
+.snap.swap-dest span { background: var(--accent); color: var(--accent-ink); padding: 3px 7px; border-radius: 3px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ghost {
   position: fixed; z-index: 1000; pointer-events: none; opacity: .92;
@@ -379,8 +479,11 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   <div class="layout">
     <section class="panel a-palette">
       <h2>Equipment</h2>
-      <p class="hint">Drag a size onto the rack. It snaps to the nearest open U. Tap one to drop it in the top free slot.</p>
+      <p class="hint">Drag onto the rack. It snaps to the nearest open U. Tap one to drop it in the top free slot.</p>
+      <h3 class="sub">Any size</h3>
       <div class="palette" id="palette"></div>
+      <h3 class="sub">Common gear</h3>
+      <div class="gear" id="gear"></div>
     </section>
 
     <main class="stage a-stage">
@@ -442,6 +545,35 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     { id: 'other', name: 'Other' }
   ];
   const SIZES = [1, 2, 3, 4];
+  const FACES = [
+    { id: 'generic', name: 'Generic' },
+    { id: 'server', name: 'Server' },
+    { id: 'storage', name: 'Storage / NAS' },
+    { id: 'switch', name: 'Switch' },
+    { id: 'router', name: 'Router / firewall' },
+    { id: 'patch', name: 'Patch panel' },
+    { id: 'ups', name: 'UPS' },
+    { id: 'pdu', name: 'PDU' },
+    { id: 'cable', name: 'Brush panel' },
+    { id: 'shelf', name: 'Shelf' },
+    { id: 'vent', name: 'Vented panel' },
+    { id: 'blank', name: 'Blanking plate' }
+  ];
+  const PRESETS = [
+    { name: 'Patch panel', h: 1, face: 'patch', kind: 'patch', label: 'Patch panel' },
+    { name: 'Switch', h: 1, face: 'switch', kind: 'network', label: 'Switch' },
+    { name: 'Router / firewall', h: 1, face: 'router', kind: 'network', label: 'Firewall' },
+    { name: 'Brush panel', h: 1, face: 'cable', kind: 'patch', label: 'Brush panel' },
+    { name: 'Server', h: 1, face: 'server', kind: 'server', label: '1U server' },
+    { name: 'Server', h: 2, face: 'server', kind: 'server', label: '2U server' },
+    { name: 'Storage / NAS', h: 2, face: 'storage', kind: 'storage', label: 'NAS' },
+    { name: 'UPS', h: 2, face: 'ups', kind: 'power', label: 'UPS' },
+    { name: 'PDU', h: 1, face: 'pdu', kind: 'power', label: 'PDU' },
+    { name: 'Shelf', h: 2, face: 'shelf', kind: 'other', label: 'Shelf' },
+    { name: 'Vented panel', h: 1, face: 'vent', kind: 'other', label: 'Vent' },
+    { name: 'Blanking plate', h: 1, face: 'blank', kind: 'other', label: 'Blank' }
+  ];
+  const faceName = (f) => (FACES.find((x) => x.id === f) || FACES[0]).name;
   const HEIGHTS = [6, 9, 12, 16, 18, 22, 24, 32, 42, 48];
   const KEY = 'rack-planner.v1';
   const $ = (s) => document.querySelector(s);
@@ -456,12 +588,13 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     return {
       name: 'Homelab rack', height: 16, example: true,
       devices: [
-        { id: uid(), u: 16, h: 1, label: 'Patch panel 24p', kind: 'patch' },
-        { id: uid(), u: 15, h: 1, label: 'Core switch', kind: 'network' },
-        { id: uid(), u: 12, h: 2, label: 'NAS', kind: 'storage' },
-        { id: uid(), u: 8, h: 3, label: 'GPU node', kind: 'server' },
-        { id: uid(), u: 3, h: 4, label: 'Compute node', kind: 'server' },
-        { id: uid(), u: 1, h: 2, label: 'UPS', kind: 'power' }
+        { id: uid(), u: 16, h: 1, label: 'Patch panel 24p', kind: 'patch', face: 'patch' },
+        { id: uid(), u: 15, h: 1, label: 'Core switch', kind: 'network', face: 'switch' },
+        { id: uid(), u: 14, h: 1, label: 'Brush panel', kind: 'patch', face: 'cable' },
+        { id: uid(), u: 12, h: 2, label: 'NAS', kind: 'storage', face: 'storage' },
+        { id: uid(), u: 8, h: 3, label: 'GPU node', kind: 'server', face: 'server' },
+        { id: uid(), u: 3, h: 4, label: 'Compute node', kind: 'server', face: 'generic' },
+        { id: uid(), u: 1, h: 2, label: 'UPS', kind: 'power', face: 'ups' }
       ]
     };
   }
@@ -482,7 +615,8 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       out.devices.push({
         id: uid(), u, h,
         label: String(d.label == null ? h + 'U device' : d.label).slice(0, 80),
-        kind: KINDS.some((k) => k.id === d.kind) ? d.kind : 'other'
+        kind: KINDS.some((k) => k.id === d.kind) ? d.kind : 'other',
+        face: FACES.some((f) => f.id === d.face) ? d.face : 'generic'
       });
     }
     return out;
@@ -509,6 +643,53 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   function firstFree(h) {
     for (let top = H(); top >= h; top--) { const u = top - h + 1; if (free(u, h)) return u; }
     return null;
+  }
+
+  /* Work out a swap when device `id` is dropped at bottom-U `u` and hits other devices.
+     The devices it hits move together as one block (keeping their spacing).
+     Returns { aU, moves:[{id,u}], names } or null if no clean swap exists. */
+  function planSwap(id, u) {
+    const a = byId(id); if (!a) return null;
+    const ha = a.h;
+    if (!fits(u, ha)) return null;
+    const S = state.devices.filter((d) => d.id !== id && d.u <= u + ha - 1 && u <= d.u + d.h - 1);
+    if (!S.length) return null;
+    const sLo = Math.min.apply(null, S.map((d) => d.u));
+    const sHi = Math.max.apply(null, S.map((d) => d.u + d.h - 1));
+    const hb = sHi - sLo + 1;
+    const aLo = a.u, aHi = a.u + ha - 1;
+    const others = state.devices.filter((d) => d.id !== id && S.indexOf(d) === -1);
+    const hit = (lo1, h1, lo2, h2) => lo1 <= lo2 + h2 - 1 && lo2 <= lo1 + h1 - 1;
+
+    function tryPair(na, nb) {
+      if (!fits(na, ha) || nb < 1 || nb + hb - 1 > H()) return null;
+      if (others.some((o) => hit(na, ha, o.u, o.h))) return null;
+      const moves = [];
+      for (const d of S) {
+        const nu = d.u + (nb - sLo);
+        if (hit(nu, d.h, na, ha)) return null;
+        if (others.some((o) => hit(nu, d.h, o.u, o.h))) return null;
+        moves.push({ id: d.id, u: nu });
+      }
+      if (na === a.u && moves.every((m, i) => m.u === S[i].u)) return null;
+      return { aU: na, moves, names: S.map((d) => d.label || 'Untitled') };
+    }
+
+    const pairs = [];
+    if (aHi + 1 === sLo) pairs.push([sHi - ha + 1, aLo]);        // neighbor above: flip order
+    else if (sHi + 1 === aLo) pairs.push([sLo, aHi - hb + 1]);   // neighbor below: flip order
+    [u, sLo, sHi - ha + 1].forEach((na) => [aLo, aHi - hb + 1].forEach((nb) => pairs.push([na, nb])));
+    for (const p of pairs) { const plan = tryPair(p[0], p[1]); if (plan) return plan; }
+    return null;
+  }
+
+  function applySwap(id, plan, opts) {
+    const a = byId(id); if (!a) return;
+    selectedId = id;
+    mutate(() => {
+      a.u = plan.aU;
+      plan.moves.forEach((m) => { const d = byId(m.id); if (d) d.u = m.u; });
+    }, opts);
   }
 
   function snapshot() { history.push(JSON.stringify(state)); if (history.length > 80) history.shift(); updateUndo(); }
@@ -542,12 +723,59 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     return u;
   }
 
+  /* A block of repeated items (ports, bays, outlets). Its height is a whole number of
+     item rows, so rows that don't fit are hidden completely instead of half-clipped. */
+  function wrapArt(cls, item, h, rowH, gap, perRow) {
+    const rows = Math.max(1, Math.floor((h - 0.32 + gap) / (rowH + gap)));
+    const k = (rows * rowH + (rows - 1) * gap).toFixed(3);
+    return '<span class="art wrap ' + cls + '" style="height:calc(var(--u) * ' + k + ');row-gap:calc(var(--u) * ' + gap + ')">' +
+      item.repeat(rows * perRow) + '</span>';
+  }
+  const LEDS = '<span class="leds"><i></i><i></i></span>';
+  const PORT = '<i class="port"></i>';
+  function artHTML(face, h) {
+    switch (face) {
+      case 'switch':
+        return wrapArt('ports', '<span class="pgroup" style="--rows:2">' + PORT.repeat(12) + '</span>', h, 0.6, 0.3, 8) +
+          '<span class="sfp">' + '<i></i>'.repeat(4) + '</span>' + LEDS;
+      case 'patch':
+        return wrapArt('ports patch', '<span class="pgroup" style="--rows:1">' + PORT.repeat(6) + '</span>', h, 0.3, 0.5, 8);
+      case 'router':
+        return '<span class="art ports-fixed"><span class="pgroup" style="--rows:1">' + PORT.repeat(4) + '</span>' +
+          '<span class="pgroup" style="--rows:1">' + PORT.repeat(4) + '</span><i class="console"></i></span>' +
+          '<span class="spacer"></span>' + (h >= 2 ? '<span class="vents small"></span>' : '') +
+          '<span class="sfp">' + '<i></i>'.repeat(2) + '</span>' + LEDS;
+      case 'server':
+        return (h === 1
+          ? wrapArt('bays sm limit', '<i class="hdd"></i>', 1, 0.72, 0.1, 12)
+          : wrapArt('bays lg limit', '<i class="hdd"></i>', h, 0.46, 0.08, 5)) +
+          '<span class="spacer"></span><span class="vents small"></span>' + LEDS;
+      case 'storage':
+        return (h === 1
+          ? wrapArt('bays sm', '<i class="hdd"></i>', 1, 0.72, 0.1, 30)
+          : wrapArt('bays lg', '<i class="hdd"></i>', h, 0.46, 0.08, 10)) + LEDS;
+      case 'ups':
+        return '<span class="spacer"></span><span class="lcd"><i></i><i></i><i></i><i></i></span>' +
+          '<span class="btns"><i></i><i></i></span>' + (h >= 2 ? '<span class="vents small"></span>' : '') + LEDS;
+      case 'pdu':
+        return '<span class="seg7">4.2A</span>' + wrapArt('outlets', '<i class="outlet"></i>', h, 0.5, 0.25, 24);
+      case 'cable':
+        return '<span class="brush"></span>';
+      case 'vent':
+        return '<span class="perf"></span>';
+      case 'shelf':
+      case 'blank':
+        return '';
+      default:
+        return '<span class="spacer"></span>' + (h >= 2 ? '<span class="vents"></span>' : '') + LEDS;
+    }
+  }
+  const HAS_ART = ['switch', 'patch', 'router', 'server', 'storage', 'pdu', 'cable', 'vent'];
   function faceHTML(d) {
-    return '<span class="ear"></span><span class="face">' +
-      '<span class="tape">' + esc(d.label || 'Untitled') + '</span>' +
-      '<span class="spacer"></span>' +
-      (d.h >= 2 ? '<span class="vents"></span>' : '') +
-      '<span class="leds"><i></i><i></i></span>' +
+    const face = d.face || 'generic';
+    return '<span class="ear"></span><span class="face f-' + face + (HAS_ART.indexOf(face) > -1 ? ' has-art' : '') + '">' +
+      (String(d.label || '').trim() ? '<span class="tape">' + esc(d.label) + '</span>' : '') +
+      artHTML(face, d.h) +
       '</span><span class="ear"></span>';
   }
 
@@ -641,6 +869,9 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       '<h2>Selected device</h2>' +
       '<p class="pos">' + posLabel(d) + ' · ' + inches(d.h) + ' tall</p>' +
       '<label class="field"><span>Label</span><input class="input" id="insp-label" maxlength="80" value="' + esc(d.label) + '"></label>' +
+      '<label class="field"><span>Face</span><select class="input" id="insp-face">' +
+        FACES.map((f) => '<option value="' + f.id + '"' + (f.id === (d.face || 'generic') ? ' selected' : '') + '>' + f.name + '</option>').join('') +
+      '</select></label>' +
       '<label class="field"><span>Type</span><select class="input" id="insp-kind">' + kindOpts + '</select></label>' +
       '<div class="field"><span>Size</span><div class="seg" id="insp-size">' + seg + '</div></div>' +
       '<div class="row-btns">' +
@@ -661,6 +892,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     });
     lab.addEventListener('keydown', (e) => { if (e.key === 'Enter') lab.blur(); });
     $('#insp-kind').addEventListener('change', (e) => mutate(() => { d.kind = e.target.value; }));
+    $('#insp-face').addEventListener('change', (e) => mutate(() => { d.face = e.target.value; }));
     $$('#insp-size button').forEach((b) => b.addEventListener('click', () => resize(d.id, Number(b.dataset.h))));
     $('#insp-up').addEventListener('click', () => nudge(d.id, 1));
     $('#insp-down').addEventListener('click', () => nudge(d.id, -1));
@@ -692,10 +924,12 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   }
 
   /* ---------- Actions ---------- */
-  function addDevice(h, u) {
+  function sizeSpec(h) { return { h, face: 'generic', kind: h === 1 ? 'network' : 'server', label: 'New ' + h + 'U device' }; }
+  function addDevice(spec, u) {
+    const h = spec.h;
     if (u == null) u = firstFree(h);
     if (u == null) { toast('No room left for a ' + h + 'U device.'); return; }
-    const d = { id: uid(), u, h, label: 'New ' + h + 'U device', kind: h === 1 ? 'network' : 'server' };
+    const d = { id: uid(), u, h, label: spec.label, kind: spec.kind, face: spec.face };
     selectedId = d.id;
     mutate(() => { state.devices.push(d); });
     if (finePointer) { const lab = $('#insp-label'); if (lab) { lab.focus(); lab.select(); } }
@@ -709,7 +943,12 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const d = byId(id); if (!d) return;
     const u = d.u + dir;
     if (!fits(u, d.h)) { toast(dir > 0 ? 'Already at the top of the rack.' : 'Already at the bottom of the rack.'); return; }
-    if (!free(u, d.h, id)) { toast('Something is in the way.'); return; }
+    if (!free(u, d.h, id)) {
+      const plan = planSwap(id, u);
+      if (plan) applySwap(id, plan, { focus: document.activeElement && document.activeElement.classList.contains('device') });
+      else toast('Something is in the way, and there isn’t room to swap.');
+      return;
+    }
     mutate(() => { d.u = u; }, { focus: document.activeElement && document.activeElement.classList.contains('device') });
   }
   function resize(id, h) {
@@ -725,7 +964,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const d = byId(id); if (!d) return;
     const u = firstFree(d.h);
     if (u == null) { toast('No room left for another ' + d.h + 'U device.'); return; }
-    const c = { id: uid(), u, h: d.h, label: d.label, kind: d.kind };
+    const c = { id: uid(), u, h: d.h, label: d.label, kind: d.kind, face: d.face };
     selectedId = c.id;
     mutate(() => { state.devices.push(c); });
   }
@@ -744,13 +983,14 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const input = document.createElement('input');
     input.className = 'tape-input'; input.value = d.label; input.maxLength = 80;
     input.setAttribute('aria-label', 'Device label');
-    tape.replaceWith(input);
+    if (tape) tape.replaceWith(input);
+    else { const face = el.querySelector('.face'); face.insertBefore(input, face.firstChild); }
     input.focus(); input.select();
     let done = false;
     const finish = (commit) => {
       if (done) return; done = true; editing = false;
       const v = input.value.trim();
-      if (commit && v && v !== d.label) { selectedId = id; mutate(() => { d.label = v; }, { focus: true }); }
+      if (commit && v !== d.label) { selectedId = id; mutate(() => { d.label = v; }, { focus: true }); }
       else render({ focus: true });
     };
     input.addEventListener('keydown', (e) => {
@@ -773,14 +1013,14 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const d = byId(id); if (!d) return;
     if (selectedId !== id) select(id);
     const r = e.currentTarget.getBoundingClientRect();
-    beginPointer(e, { type: 'device', id, h: d.h, kind: d.kind, label: d.label, el: e.currentTarget,
+    beginPointer(e, { type: 'device', id, h: d.h, kind: d.kind, label: d.label, face: d.face, el: e.currentTarget,
       grabX: e.clientX - r.left, grabY: e.clientY - r.top });
   }
-  function onTilePointerDown(e, h) {
+  function onTilePointerDown(e, spec) {
     if (e.button !== 0) return;
     const { r, U } = bayGeom();
-    beginPointer(e, { type: 'palette', h, kind: h === 1 ? 'network' : 'server', label: 'New ' + h + 'U device',
-      el: e.currentTarget, grabX: r.width / 2, grabY: (h * U) / 2 });
+    beginPointer(e, { type: 'palette', spec, h: spec.h, kind: spec.kind, label: spec.label, face: spec.face,
+      el: e.currentTarget, grabX: r.width / 2, grabY: (spec.h * U) / 2 });
   }
 
   function beginPointer(e, src) {
@@ -788,8 +1028,15 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     try { src.el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
   }
 
+  function clearSwapMarks() {
+    if (!drag || !drag.marks) return;
+    drag.marks.forEach((m) => m.remove());
+    drag.marks = [];
+  }
+
   function startDrag(e) {
     drag.started = true;
+    drag.marks = [];
     const { r, U } = bayGeom();
     const g = document.createElement('div');
     g.className = 'device ghost fresh k-' + drag.kind;
@@ -798,7 +1045,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     g.style.setProperty('--u', U + 'px');
     g.style.width = r.width + 'px';
     g.style.height = (drag.h * U - 2) + 'px';
-    g.innerHTML = faceHTML({ label: drag.label, h: drag.h });
+    g.innerHTML = faceHTML({ label: drag.label, h: drag.h, face: drag.face });
     document.body.appendChild(g);
     drag.ghost = g;
     const snap = document.createElement('div');
@@ -822,16 +1069,35 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       row = Math.max(0, Math.min(H() - h, row));
       const u = H() - row - h + 1;
       const ok = free(u, h, drag.type === 'device' ? drag.id : null);
-      drag.target = { u, ok };
+      const plan = !ok && drag.type === 'device' ? planSwap(drag.id, u) : null;
+      clearSwapMarks();
+      if (plan) {
+        row = H() - (plan.aU + h - 1);
+        drag.target = { u: plan.aU, ok: true, plan };
+        plan.moves.forEach((m, i) => {
+          const md = byId(m.id);
+          const mark = document.createElement('div');
+          mark.className = 'snap swap-dest';
+          mark.style.setProperty('--row', H() - (m.u + md.h - 1));
+          mark.style.setProperty('--h', md.h);
+          if (i === 0) mark.innerHTML = '<span>↕ ' + esc(plan.names.join(', ')) + '</span>';
+          $('#bay').appendChild(mark);
+          drag.marks.push(mark);
+        });
+      } else {
+        drag.target = { u, ok };
+      }
       g.classList.remove('away');
       g.style.left = r.left + 'px';
       g.style.top = (r.top + row * U + 1) + 'px';
       drag.snap.hidden = false;
       drag.snap.style.setProperty('--row', row);
-      drag.snap.classList.toggle('bad', !ok);
+      drag.snap.classList.toggle('bad', !ok && !plan);
+      drag.snap.classList.toggle('swap', !!plan);
       if (hint) hint.remove();
     } else {
       drag.target = null;
+      clearSwapMarks();
       g.classList.add('away');
       g.style.left = (e.clientX - drag.grabX) + 'px';
       g.style.top = (e.clientY - drag.grabY) + 'px';
@@ -850,19 +1116,22 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const d = drag; drag = null;
     try { d.el.releasePointerCapture(d.pid); } catch (err) { /* ignore */ }
     if (!d.started) {
-      if (!cancelled && d.type === 'palette') { d.suppress = true; lastTileTap = Date.now(); addDevice(d.h); }
+      if (!cancelled && d.type === 'palette') { d.suppress = true; lastTileTap = Date.now(); addDevice(d.spec); }
       return;
     }
     d.ghost.remove(); d.snap.remove();
+    (d.marks || []).forEach((m) => m.remove());
     document.body.classList.remove('dragging');
     if (d.type === 'device') d.el.classList.remove('lifting');
     lastTileTap = Date.now();
     if (cancelled) return;
-    if (d.target && d.target.ok) {
-      if (d.type === 'palette') addDevice(d.h, d.target.u);
+    if (d.target && d.target.plan) {
+      applySwap(d.id, d.target.plan);
+    } else if (d.target && d.target.ok) {
+      if (d.type === 'palette') addDevice(d.spec, d.target.u);
       else moveTo(d.id, d.target.u);
     } else if (d.target && !d.target.ok) {
-      toast('That spot overlaps another device.');
+      toast(d.type === 'device' ? 'Can’t swap there. There isn’t room for both devices.' : 'That spot overlaps another device.');
     } else if (d.type === 'device') {
       remove(d.id);
     }
@@ -894,11 +1163,21 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
         '<span class="tile-art"><span class="mini" style="height:' + (h * 11 + 1) + 'px"></span></span>' +
         '<span class="tile-cap"><span class="tile-size">' + h + 'U</span><span class="tile-dim">' + inches(h) + '</span></span>' +
       '</button>').join('');
-    $$('#palette .tile').forEach((t) => {
-      const h = Number(t.dataset.h);
-      t.addEventListener('pointerdown', (e) => onTilePointerDown(e, h));
+    $('#gear').innerHTML = PRESETS.map((p, i) =>
+      '<button type="button" class="tile" data-i="' + i + '" aria-label="Add a ' + p.h + 'U ' + esc(p.name) + '">' +
+        '<span class="gear-art"><span class="device preview k-' + p.kind + '" style="--h:' + p.h + ';height:calc(' + p.h + ' * var(--u) - 2px)">' +
+          faceHTML(p) + '</span></span>' +
+        '<span class="tile-cap"><span class="gear-name">' + esc(p.name) + '</span><span class="gear-size">' + p.h + 'U</span></span>' +
+      '</button>').join('');
+    const wire = (t, spec) => {
+      t.addEventListener('pointerdown', (e) => onTilePointerDown(e, spec));
       // keyboard activation (pointer taps are handled on pointerup)
-      t.addEventListener('click', (e) => { if (Date.now() - lastTileTap > 400 && e.detail === 0) addDevice(h); });
+      t.addEventListener('click', (e) => { if (Date.now() - lastTileTap > 400 && e.detail === 0) addDevice(spec); });
+    };
+    $$('#palette .tile').forEach((t) => wire(t, sizeSpec(Number(t.dataset.h))));
+    $$('#gear .tile').forEach((t) => {
+      const p = PRESETS[Number(t.dataset.i)];
+      wire(t, { h: p.h, face: p.face, kind: p.kind, label: p.label });
     });
   }
 
@@ -971,7 +1250,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   function exportJSON() {
     return JSON.stringify({
       name: state.name, height: state.height,
-      devices: state.devices.slice().sort((a, b) => b.u - a.u).map((d) => ({ u: d.u, h: d.h, label: d.label, kind: d.kind }))
+      devices: state.devices.slice().sort((a, b) => b.u - a.u).map((d) => ({ u: d.u, h: d.h, label: d.label, kind: d.kind, face: d.face || 'generic' }))
     }, null, 2);
   }
   $('#copy-json').addEventListener('click', () => {
