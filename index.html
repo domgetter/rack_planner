@@ -39,6 +39,13 @@
   --tape: #f2f0e6;
   --tape-ink: #111315;
   --led: #5ad38c;
+  --screw-hi: #d3d8dd;
+  --screw: #8b939b;
+  --screw-rim: #2b3035;
+  /* ear geometry: how far each ear reaches over the rail, and where the hole centre sits from the bay edge */
+  --ear-w: 18px;
+  --ear-out: 14px;
+  --hole-in: 7px;
   --port: #111315;
   --port-rim: #7b848d;
   --console: #3d7cc4;
@@ -113,6 +120,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.armed { background: var(--bad); border-color: var(--bad); color: #fff; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 select.btn { padding-right: 8px; }
+.height-box { display: inline-flex; align-items: center; gap: 4px; }
+.height-box > span { font: 600 15px/1 var(--font-display); color: var(--ink); }
+.height-input { width: 6.4em; padding: 8px 6px 8px 10px; font-variant-numeric: tabular-nums; cursor: text; }
 
 .example-note {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -122,28 +132,31 @@ select.btn { padding-right: 8px; }
 .example-note strong { font-weight: 600; }
 .example-note .spacer { flex: 1; }
 
-/* Grid */
+/* Grid: two stacked side columns around the rack. On phones the columns dissolve so
+   every panel becomes its own grid item and can be ordered around the rack. */
 .layout {
   display: grid; gap: 16px; align-items: start;
   grid-template-columns: 290px minmax(340px, 540px) minmax(0, 1fr);
-  grid-template-areas:
-    "palette stage list"
-    "inspect stage list"
-    "files   stage list";
+  grid-template-areas: "left stage right";
 }
-.a-palette { grid-area: palette; }
-.a-inspect { grid-area: inspect; }
-.a-files { grid-area: files; }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.col-left { grid-area: left; }
+.col-right { grid-area: right; }
 .a-stage { grid-area: stage; }
-.a-list { grid-area: list; }
 @media (max-width: 1180px) {
   .layout {
     grid-template-columns: 290px minmax(0, 1fr);
-    grid-template-areas: "palette stage" "inspect stage" "files stage" "list list";
+    grid-template-areas: "left stage" "right right";
   }
 }
 @media (max-width: 760px) {
-  .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "palette" "stage" "inspect" "list" "files"; }
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "palette" "stage" "inspect" "list" "cables" "files"; }
+  .col { display: contents; }
+  .a-palette { grid-area: palette; }
+  .a-inspect { grid-area: inspect; }
+  .a-files { grid-area: files; }
+  .a-list { grid-area: list; }
+  .a-cables { grid-area: cables; }
   .rack-name { font-size: 28px; }
 }
 
@@ -152,6 +165,17 @@ select.btn { padding-right: 8px; }
   margin: 0 0 4px; font: 600 15px/1.2 var(--font-display); letter-spacing: .1em;
   text-transform: uppercase; color: var(--muted);
 }
+.collapse-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  padding: 2px 0; margin: 0; border: 0; background: transparent; cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left;
+}
+.collapse-btn:hover { color: var(--ink); }
+.collapse-btn .chev { flex: none; transition: transform 160ms ease; }
+.collapse-btn[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+.collapse-head:has(.collapse-btn[aria-expanded="false"]) { margin-bottom: 0; }
+#palette-body, .collapse-body { padding-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .collapse-btn .chev { transition: none; } }
 .hint { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 
 /* Palette */
@@ -230,7 +254,7 @@ select.btn { padding-right: 8px; }
 /* Devices */
 .device {
   --kind: var(--k-server);
-  position: absolute; left: 0; right: 0;
+  position: absolute; left: calc(-1 * var(--ear-out)); right: calc(-1 * var(--ear-out));
   top: calc(var(--row) * var(--u) + 1px);
   height: calc(var(--h) * var(--u) - 2px);
   display: flex; cursor: grab; touch-action: none; border-radius: 2px;
@@ -245,11 +269,13 @@ select.btn { padding-right: 8px; }
 .device.selected, .device:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 2; }
 .device.lifting { opacity: .25; }
 .ear {
-  flex: 0 0 14px; background-color: var(--ear);
-  background-image: radial-gradient(circle at 50% calc(var(--u) / 2), var(--hole) 2.6px, rgba(0,0,0,.4) 3.4px, transparent 4px);
+  --screw-x: var(--hole-in);
+  flex: 0 0 var(--ear-w); background-color: var(--ear);
+  background-image: radial-gradient(circle at var(--screw-x) calc(var(--u) / 2), var(--screw-hi) 0 1px, var(--screw) 2.2px, var(--screw-rim) 3px, rgba(0,0,0,.35) 3.6px, transparent 4.2px);
   background-size: 100% var(--u); background-repeat: repeat-y; background-position: 0 -1px;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.3);
 }
+.ear:last-child { --screw-x: calc(100% - var(--hole-in)); }
 .face {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0 10px;
   border-left: 5px solid var(--kind);
@@ -400,7 +426,7 @@ label.btn:has(+ #open-file:focus-visible) { outline: 2px solid var(--accent); ou
 .device.preview .tape { display: none; }
 
 .snap {
-  position: absolute; left: 0; right: 0; pointer-events: none; z-index: 3;
+  position: absolute; left: calc(-1 * var(--ear-out)); right: calc(-1 * var(--ear-out)); pointer-events: none; z-index: 3;
   top: calc(var(--row) * var(--u) + 1px); height: calc(var(--h) * var(--u) - 2px);
   border: 2px dashed var(--ok); background: var(--ok-bg); border-radius: 2px;
 }
@@ -471,6 +497,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
 .chip::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--c); }
 .dev-name { font-weight: 500; overflow-wrap: anywhere; }
+.unlabeled { color: var(--muted); font-weight: 400; font-style: italic; }
 
 /* Toast */
 .toast {
@@ -483,13 +510,13 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 .toast button { background: transparent; border: 0; color: var(--accent); font-weight: 600; cursor: pointer; padding: 2px 4px; }
 
 @media (max-width: 560px) {
+  :root { --ear-w: 13px; --ear-out: 10px; --hole-in: 4.5px; }
   .vents { display: none; }
   .rack { padding: 0 6px; }
   .rack-body { grid-template-columns: 26px minmax(0, 1fr) 26px; }
   .rail.left .rail-u { padding-left: 2px; background-position: right 2px top 18%, right 2px center, right 2px bottom 18%; }
   .rail.right .rail-u { padding-right: 2px; background-position: left 2px top 18%, left 2px center, left 2px bottom 18%; }
   .rail-u { background-size: 5px 4px; font-size: 9px; }
-  .ear { flex-basis: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .ghost { transition: none; } }
 </style>
@@ -511,7 +538,8 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
         </select>
       </label>
       <label class="field-inline" for="rack-height">Rack height
-        <select id="rack-height" class="btn"></select>
+        <span class="height-box"><input id="rack-height" class="btn height-input" type="number" min="4" max="70" step="1" inputmode="numeric" list="height-presets" aria-describedby="height-unit"><span id="height-unit">U</span></span>
+        <datalist id="height-presets"><option value="6"></option><option value="9"></option><option value="12"></option><option value="16"></option><option value="18"></option><option value="22"></option><option value="24"></option><option value="27"></option><option value="32"></option><option value="42"></option><option value="45"></option><option value="48"></option></datalist>
       </label>
       <button id="undo" class="btn" type="button">Undo</button>
       <button id="clear" class="btn danger" type="button">Clear rack</button>
@@ -526,37 +554,22 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   </div>
 
   <div class="layout">
+    <div class="col col-left">
     <section class="panel a-palette">
-      <h2>Equipment</h2>
+      <h2 class="collapse-head">
+        <button type="button" class="collapse-btn" id="palette-toggle" aria-expanded="true" aria-controls="palette-body">
+          <span>New Equipment</span>
+          <svg class="chev" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </h2>
+      <div id="palette-body">
       <p class="hint">Drag onto the rack. It snaps to the nearest open U. Tap one to drop it in the top free slot.</p>
       <h3 class="sub">Any size</h3>
       <div class="palette" id="palette"></div>
       <h3 class="sub">Common gear</h3>
       <div class="gear" id="gear"></div>
+      </div>
     </section>
-
-    <main class="stage a-stage">
-      <div class="stats" id="stats"></div>
-      <div class="meter" id="meter" aria-hidden="true"></div>
-      <div class="toolbar">
-        <div class="mode" role="group" aria-label="Mode">
-          <button type="button" id="mode-arrange" aria-pressed="true">Arrange</button>
-          <button type="button" id="mode-cable" aria-pressed="false">Cables</button>
-        </div>
-        <div id="swatches" hidden></div>
-        <label class="check" for="show-cables"><input type="checkbox" id="show-cables" checked> Show cables</label>
-      </div>
-      <p class="mode-hint" id="mode-hint" hidden></p>
-      <div class="rack" id="rack">
-        <div class="rack-cap"><span id="cap-name">Front</span><span id="cap-size">16U</span></div>
-        <div class="rack-body">
-          <div class="rail left" id="rail-l" aria-hidden="true"></div>
-          <div class="bay" id="bay" aria-label="Rack bay"></div>
-          <div class="rail right" id="rail-r" aria-hidden="true"></div>
-        </div>
-        <div class="rack-cap bottom"><span>U1 at bottom</span><span>19″ · 1U = 1.75″</span></div>
-      </div>
-    </main>
 
     <section class="panel a-inspect" id="inspector" aria-live="polite"></section>
 
@@ -581,24 +594,68 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
         <p class="io-msg" id="io-msg" hidden></p>
       </div>
     </section>
+    </div>
 
+    <main class="stage a-stage">
+      <div class="stats" id="stats"></div>
+      <div class="meter" id="meter" aria-hidden="true"></div>
+      <div class="toolbar">
+        <div class="mode" role="group" aria-label="Mode">
+          <button type="button" id="mode-arrange" aria-pressed="true">Arrange</button>
+          <button type="button" id="mode-cable" aria-pressed="false">Cables</button>
+        </div>
+        <div id="swatches" hidden></div>
+        <label class="check" for="show-cables"><input type="checkbox" id="show-cables" checked> Show cables</label>
+      </div>
+      <p class="mode-hint" id="mode-hint" hidden></p>
+      <div class="rack" id="rack">
+        <div class="rack-cap"><span id="cap-name">Front</span><span id="cap-size">16U</span></div>
+        <div class="rack-body">
+          <div class="rail left" id="rail-l" aria-hidden="true"></div>
+          <div class="bay" id="bay" aria-label="Rack bay"></div>
+          <div class="rail right" id="rail-r" aria-hidden="true"></div>
+        </div>
+        <div class="rack-cap bottom"><span>U1 at bottom</span><span>19″ · 1U = 1.75″</span></div>
+      </div>
+    </main>
+
+    <div class="col col-right">
     <section class="panel a-list">
-      <h2>Elevation list</h2>
+      <h2 class="collapse-head">
+        <button type="button" class="collapse-btn" id="list-toggle" aria-expanded="true" aria-controls="list-body">
+          <span>Elevation list</span>
+          <svg class="chev" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </h2>
+      <div id="list-body" class="collapse-body">
       <p class="hint">Top of the rack first. Click a row to select it.</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Position</th><th>Device</th><th>Size</th><th>Type</th></tr></thead>
+          <thead><tr><th>Position</th><th>Device</th><th>Size</th><th>Type</th><th><span class="sr">Remove</span></th></tr></thead>
           <tbody id="list"></tbody>
         </table>
       </div>
-      <h3 class="sub">Patch schedule</h3>
+      </div>
+    </section>
+
+    <section class="panel a-cables">
+      <h2 class="collapse-head">
+        <button type="button" class="collapse-btn" id="cables-toggle" aria-expanded="true" aria-controls="cables-body">
+          <span>Patch schedule</span>
+          <svg class="chev" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </h2>
+      <div id="cables-body" class="collapse-body">
+      <p class="hint">Every cable, top of the rack first. Click a row to select it.</p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>From · port</th><th>To · port</th><th>Color</th><th><span class="sr">Remove</span></th></tr></thead>
           <tbody id="cable-list"></tbody>
         </table>
       </div>
+      </div>
     </section>
+    </div>
   </div>
 
   <div class="toast" id="toast" role="status" hidden></div>
@@ -633,18 +690,20 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     { name: 'Patch panel', h: 1, face: 'patch', kind: 'patch', label: 'Patch panel' },
     { name: 'Switch', h: 1, face: 'switch', kind: 'network', label: 'Switch' },
     { name: 'Router / firewall', h: 1, face: 'router', kind: 'network', label: 'Firewall' },
-    { name: 'Brush panel', h: 1, face: 'cable', kind: 'patch', label: 'Brush panel' },
+    { name: 'Brush panel', h: 1, face: 'cable', kind: 'patch', label: '' },
     { name: 'Server', h: 1, face: 'server', kind: 'server', label: '1U server' },
     { name: 'Server', h: 2, face: 'server', kind: 'server', label: '2U server' },
     { name: 'Storage / NAS', h: 2, face: 'storage', kind: 'storage', label: 'NAS' },
     { name: 'UPS', h: 2, face: 'ups', kind: 'power', label: 'UPS' },
     { name: 'PDU', h: 1, face: 'pdu', kind: 'power', label: 'PDU' },
     { name: 'Shelf', h: 2, face: 'shelf', kind: 'other', label: 'Shelf' },
-    { name: 'Vented panel', h: 1, face: 'vent', kind: 'other', label: 'Vent' },
-    { name: 'Blanking plate', h: 1, face: 'blank', kind: 'other', label: 'Blank' }
+    { name: 'Vented panel', h: 1, face: 'vent', kind: 'other', label: '' },
+    { name: 'Blanking plate', h: 1, face: 'blank', kind: 'other', label: '' }
   ];
   const faceName = (f) => (FACES.find((x) => x.id === f) || FACES[0]).name;
-  const HEIGHTS = [6, 9, 12, 16, 18, 22, 24, 32, 42, 48];
+  const labelOf = (d) => String((d && d.label) || '').trim();
+  const displayName = (d) => labelOf(d) || faceName(d.face);
+  const MIN_H = 4, MAX_H = 70;
   const KEY = 'rack-planner.v1';
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -714,7 +773,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   function normalize(s) {
     if (!s || typeof s !== 'object' || !Array.isArray(s.devices)) return null;
     const height = Number(s.height);
-    if (!Number.isInteger(height) || height < 1 || height > 60) return null;
+    if (!Number.isInteger(height) || height < MIN_H || height > MAX_H) return null;
     const out = { name: String(s.name || 'My rack').slice(0, 60), height, example: !!s.example, devices: [], cables: [] };
     const idMap = {};
     const usedIds = new Set();
@@ -804,7 +863,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
         moves.push({ id: d.id, u: nu });
       }
       if (na === a.u && moves.every((m, i) => m.u === S[i].u)) return null;
-      return { aU: na, moves, names: S.map((d) => d.label || 'Untitled') };
+      return { aU: na, moves, names: S.map(displayName) };
     }
 
     const pairs = [];
@@ -973,7 +1032,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       el.dataset.id = d.id;
       el.tabIndex = 0;
       el.setAttribute('role', 'button');
-      el.setAttribute('aria-label', (d.label || 'Untitled') + ', ' + d.h + 'U ' + kindName(d.kind) + ' at ' + posLabel(d));
+      el.setAttribute('aria-label', displayName(d) + ', ' + d.h + 'U ' + kindName(d.kind) + ' at ' + posLabel(d));
       el.style.setProperty('--row', H() - (d.u + d.h - 1));
       el.style.setProperty('--h', d.h);
       el.innerHTML = faceHTML(d);
@@ -1061,20 +1120,22 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       if (d) {
         rows.push('<tr class="dev-row' + (d.id === selectedId ? ' selected' : '') + '" data-id="' + d.id + '">' +
           '<td class="pos-col">' + posLabel(d) + '</td>' +
-          '<td class="dev-name">' + esc(d.label || 'Untitled') + '</td>' +
+          '<td class="dev-name">' + (labelOf(d) ? esc(labelOf(d)) : '<span class="unlabeled">' + esc(faceName(d.face)) + '</span>') + '</td>' +
           '<td>' + d.h + 'U</td>' +
-          '<td><span class="chip" style="--c:var(--k-' + d.kind + ')">' + kindName(d.kind) + '</span></td></tr>');
+          '<td><span class="chip" style="--c:var(--k-' + d.kind + ')">' + kindName(d.kind) + '</span></td>' +
+          '<td class="x-col"><button type="button" class="x-btn" data-del-dev="' + d.id + '" aria-label="Remove ' + esc(displayName(d)) + '" title="Remove">×</button></td></tr>');
         u -= d.h;
       } else {
         let bottom = u;
         while (bottom - 1 >= 1 && !state.devices.some((x) => bottom - 1 >= x.u && bottom - 1 <= x.u + x.h - 1)) bottom--;
         const h = u - bottom + 1;
-        rows.push('<tr class="gap-row"><td class="pos-col">' + (h === 1 ? 'U' + u : 'U' + bottom + '–U' + u) + '</td><td>Empty</td><td>' + h + 'U</td><td></td></tr>');
+        rows.push('<tr class="gap-row"><td class="pos-col">' + (h === 1 ? 'U' + u : 'U' + bottom + '–U' + u) + '</td><td>Empty</td><td>' + h + 'U</td><td></td><td></td></tr>');
         u = bottom - 1;
       }
     }
     $('#list').innerHTML = rows.join('');
-    $$('#list tr.dev-row').forEach((tr) => tr.addEventListener('click', () => {
+    $$('#list tr.dev-row').forEach((tr) => tr.addEventListener('click', (e) => {
+      if (e.target.closest('[data-del-dev]')) { remove(tr.dataset.id); return; }
       select(tr.dataset.id);
       const el = document.querySelector('.device[data-id="' + tr.dataset.id + '"]');
       if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -1217,9 +1278,8 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   function renderHeader() {
     const nameEl = $('#rack-name');
     if (document.activeElement !== nameEl) nameEl.value = state.name;
-    const sel = $('#rack-height');
-    const opts = HEIGHTS.includes(H()) ? HEIGHTS : HEIGHTS.concat(H()).sort((a, b) => a - b);
-    sel.innerHTML = opts.map((h) => '<option value="' + h + '"' + (h === H() ? ' selected' : '') + '>' + h + 'U</option>').join('');
+    const hIn = $('#rack-height');
+    if (document.activeElement !== hIn) hIn.value = String(H());
     $('#example-note').hidden = !state.example;
   }
 
@@ -1325,7 +1385,6 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const d = { id: uid(), u, h, label: spec.label, kind: spec.kind, face: spec.face };
     selectedId = d.id;
     mutate(() => { state.devices.push(d); });
-    if (finePointer) { const lab = $('#insp-label'); if (lab) { lab.focus(); lab.select(); } }
   }
   function moveTo(id, u) {
     const d = byId(id); if (!d || d.u === u) { select(id); return; }
@@ -1365,7 +1424,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const d = byId(id); if (!d) return;
     if (selectedId === id) selectedId = null;
     mutate(() => { state.devices = state.devices.filter((x) => x.id !== id); });
-    toast('Removed “' + (d.label || 'Untitled') + '”.', true);
+    toast('Removed “' + displayName(d) + '”.', true);
   }
 
   function startInlineEdit(id) {
@@ -1396,6 +1455,9 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   }
 
   /* ---------- Drag & snap ---------- */
+  function earOut() {
+    return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ear-out')) || 0;
+  }
   function bayGeom() {
     const r = $('#bay').getBoundingClientRect();
     return { r, U: r.height / H() };
@@ -1418,7 +1480,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     if (e.button !== 0) return;
     const { r, U } = bayGeom();
     beginPointer(e, { type: 'palette', spec, h: spec.h, kind: spec.kind, label: spec.label, face: spec.face,
-      el: e.currentTarget, grabX: r.width / 2, grabY: (spec.h * U) / 2 });
+      el: e.currentTarget, grabX: r.width / 2 + earOut(), grabY: (spec.h * U) / 2 });
   }
 
   function beginPointer(e, src) {
@@ -1441,7 +1503,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     g.style.left = (e.clientX - drag.grabX) + 'px';
     g.style.top = (e.clientY - drag.grabY) + 'px';
     g.style.setProperty('--u', U + 'px');
-    g.style.width = r.width + 'px';
+    g.style.width = (r.width + 2 * earOut()) + 'px';
     g.style.height = (drag.h * U - 2) + 'px';
     g.innerHTML = faceHTML({ label: drag.label, h: drag.h, face: drag.face });
     document.body.appendChild(g);
@@ -1486,7 +1548,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
         drag.target = { u, ok };
       }
       g.classList.remove('away');
-      g.style.left = r.left + 'px';
+      g.style.left = (r.left - earOut()) + 'px';
       g.style.top = (r.top + row * U + 1) + 'px';
       drag.snap.hidden = false;
       drag.snap.style.setProperty('--row', row);
@@ -1608,16 +1670,26 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   });
   $('#rack-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 
-  $('#rack-height').addEventListener('change', (e) => {
-    const nh = Number(e.target.value);
-    const tooHigh = state.devices.filter((d) => d.u + d.h - 1 > nh);
-    if (tooHigh.length) {
+  function commitHeight() {
+    const hIn = $('#rack-height');
+    const raw = hIn.value.trim();
+    let nh = Math.round(Number(raw));
+    if (raw === '' || !Number.isFinite(nh)) { hIn.value = String(H()); return; }
+    if (nh < MIN_H || nh > MAX_H) {
+      nh = Math.min(MAX_H, Math.max(MIN_H, nh));
+      toast('Rack height must be between ' + MIN_H + 'U and ' + MAX_H + 'U.');
+    }
+    hIn.value = String(nh);
+    if (nh === H()) return;
+    if (state.devices.some((d) => d.u + d.h - 1 > nh)) {
       toast('Move or remove devices above U' + nh + ' first.');
-      e.target.value = String(H());
+      hIn.value = String(H());
       return;
     }
     mutate(() => { state.height = nh; });
-  });
+  }
+  $('#rack-height').addEventListener('change', commitHeight);
+  $('#rack-height').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commitHeight(); } });
 
   $('#undo').addEventListener('click', undo);
 
@@ -1714,27 +1786,8 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const pad = (n) => String(n).padStart(2, '0');
     return slug + '-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.json';
   }
-  // Inside Claude, files go through the viewer's save prompt. Standalone (GitHub Pages), a normal download.
-  let downloadsApi = null;
-  try {
-    if (window.claude && typeof window.claude.use === 'function') {
-      window.claude.use('downloads').then((ns) => { downloadsApi = ns; }, () => {});
-    }
-  } catch (e) { /* not inside Claude */ }
-
   $('#save-file').addEventListener('click', () => {
     const name = fileName();
-    if (downloadsApi) {
-      downloadsApi.save({ filename: name, data: exportJSON() }).then(
-        () => ioMsg('Saved ' + name + '.'),
-        (err) => {
-          const code = err && err.code;
-          if (code === 'declined') ioMsg('Save cancelled.');
-          else if (code === 'rate_limited') ioMsg('A save prompt is already open. Finish that one, then try again.');
-          else ioMsg('Saving files isn’t available here. Use Copy layout to clipboard instead.', true);
-        });
-      return;
-    }
     try {
       const url = URL.createObjectURL(new Blob([exportJSON()], { type: 'application/json' }));
       const a = document.createElement('a');
@@ -1808,6 +1861,23 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     clearTimeout(resizeT);
     resizeT = setTimeout(() => $('#rack').style.setProperty('--u', unitPx() + 'px'), 80);
   });
+
+  /* Collapsible panels; each panel's open/closed choice is remembered in this browser */
+  function collapsible(btnSel, bodySel, key) {
+    const btn = $(btnSel), body = $(bodySel);
+    const set = (open, remember) => {
+      btn.setAttribute('aria-expanded', String(open));
+      body.hidden = !open;
+      if (remember) { try { localStorage.setItem(key, open ? '1' : '0'); } catch (e) { /* ignore */ } }
+    };
+    let open = true;
+    try { open = localStorage.getItem(key) !== '0'; } catch (e) { /* ignore */ }
+    set(open, false);
+    btn.addEventListener('click', () => set(btn.getAttribute('aria-expanded') !== 'true', true));
+  }
+  collapsible('#palette-toggle', '#palette-body', 'rack-planner.palette-open');
+  collapsible('#list-toggle', '#list-body', 'rack-planner.list-open');
+  collapsible('#cables-toggle', '#cables-body', 'rack-planner.cables-open');
 
   renderPalette();
   renderSwatches();
