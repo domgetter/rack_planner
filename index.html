@@ -347,6 +347,55 @@ select.btn { padding-right: 8px; }
 }
 .face.f-blank { background: linear-gradient(to bottom, var(--face), var(--face-lo)); }
 
+/* Ports & cables */
+.portgrid { overflow: visible; flex: 1 1 0; display: grid; column-gap: calc(var(--u) * .05); row-gap: calc(var(--u) * .08); align-self: center; justify-content: start; }
+.portgrid.patch { row-gap: calc(var(--u) * .1); }
+.portgrid .port { position: relative; min-width: 0; }
+.portgrid.patch .port { box-shadow: 0 0 0 1.5px var(--port-rim); }
+.port.plugged { background: var(--plug); box-shadow: inset 0 calc(var(--u) * .08) 0 rgba(0,0,0,.35), 0 0 0 1px rgba(0,0,0,.5); }
+.cable-mode .device { cursor: default; }
+.cable-mode .port { cursor: crosshair; }
+.cable-mode .port::before { content: ""; position: absolute; inset: -3px -2px; }
+.cable-mode .port:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.port.pending { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--accent); }
+.port.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cables { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; z-index: 3; }
+.cables path { fill: none; stroke-linecap: round; }
+.cables .hit { stroke: transparent; }
+.cable-mode .cables .hit { pointer-events: stroke; cursor: pointer; }
+.cables .halo { stroke: var(--accent); opacity: .7; }
+.cables .temp { stroke: var(--accent); stroke-dasharray: 5 4; opacity: .9; }
+body.dragging .cables { opacity: .2; }
+.snap { z-index: 4; }
+.snap.swap-dest { z-index: 5; }
+
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.mode { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; padding: 2px; background: var(--panel); }
+.mode button {
+  font: 600 14px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase;
+  padding: 7px 14px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.mode button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch {
+  width: 22px; height: 22px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 0 0 1px var(--line);
+}
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; margin-left: auto; }
+.mode-hint { margin: 0; font-size: 13px; color: var(--ink); padding: 8px 12px; border-radius: 7px; border: 1px dashed var(--accent); }
+.port-no { font: 500 12px/1 var(--font-mono); color: var(--muted); }
+.cable-ends { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 14px; font-weight: 500; }
+.cable-arrow { color: var(--accent); font-weight: 600; }
+.pfp { display: flex; gap: 6px; }
+.pfp .input { min-width: 0; flex: 1; }
+.field-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.x-col { width: 1%; text-align: right; }
+.x-btn { border: 0; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.x-btn:hover { color: var(--bad); background: var(--bg); }
+label.btn:has(+ #open-file:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 .device.preview { position: relative; top: auto; left: auto; right: auto; width: 100%; cursor: inherit; pointer-events: none; }
 .device.preview .tape { display: none; }
 
@@ -489,6 +538,15 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     <main class="stage a-stage">
       <div class="stats" id="stats"></div>
       <div class="meter" id="meter" aria-hidden="true"></div>
+      <div class="toolbar">
+        <div class="mode" role="group" aria-label="Mode">
+          <button type="button" id="mode-arrange" aria-pressed="true">Arrange</button>
+          <button type="button" id="mode-cable" aria-pressed="false">Cables</button>
+        </div>
+        <div id="swatches" hidden></div>
+        <label class="check" for="show-cables"><input type="checkbox" id="show-cables" checked> Show cables</label>
+      </div>
+      <p class="mode-hint" id="mode-hint" hidden></p>
       <div class="rack" id="rack">
         <div class="rack-cap"><span id="cap-name">Front</span><span id="cap-size">16U</span></div>
         <div class="rack-body">
@@ -504,8 +562,13 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 
     <section class="panel a-files">
       <h2>Save &amp; load</h2>
-      <p class="hint">Your plan is saved in this browser automatically. Copy it as text to back it up or move it elsewhere.</p>
+      <p class="hint">Your plan is saved in this browser automatically. Save it to a file to back it up or move it to another computer.</p>
       <div class="io">
+        <div class="row-btns">
+          <button class="btn primary" id="save-file" type="button">Save to file</button>
+          <label class="btn" for="open-file">Open file</label>
+          <input type="file" id="open-file" class="sr" accept=".json,application/json">
+        </div>
         <div class="row-btns">
           <button class="btn" id="copy-json" type="button">Copy layout</button>
           <button class="btn" id="show-import" type="button">Paste a layout</button>
@@ -526,6 +589,13 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
         <table>
           <thead><tr><th>Position</th><th>Device</th><th>Size</th><th>Type</th></tr></thead>
           <tbody id="list"></tbody>
+        </table>
+      </div>
+      <h3 class="sub">Patch schedule</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>From · port</th><th>To · port</th><th>Color</th><th><span class="sr">Remove</span></th></tr></thead>
+          <tbody id="cable-list"></tbody>
         </table>
       </div>
     </section>
@@ -588,15 +658,53 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     return {
       name: 'Homelab rack', height: 16, example: true,
       devices: [
-        { id: uid(), u: 16, h: 1, label: 'Patch panel 24p', kind: 'patch', face: 'patch' },
-        { id: uid(), u: 15, h: 1, label: 'Core switch', kind: 'network', face: 'switch' },
+        { id: 'ex-patch', u: 16, h: 1, label: 'Patch panel 24p', kind: 'patch', face: 'patch' },
+        { id: 'ex-switch', u: 15, h: 1, label: 'Core switch', kind: 'network', face: 'switch' },
         { id: uid(), u: 14, h: 1, label: 'Brush panel', kind: 'patch', face: 'cable' },
         { id: uid(), u: 12, h: 2, label: 'NAS', kind: 'storage', face: 'storage' },
         { id: uid(), u: 8, h: 3, label: 'GPU node', kind: 'server', face: 'server' },
         { id: uid(), u: 3, h: 4, label: 'Compute node', kind: 'server', face: 'generic' },
         { id: uid(), u: 1, h: 2, label: 'UPS', kind: 'power', face: 'ups' }
-      ]
+      ],
+      cables: [0, 1, 2, 3, 4, 5].map((i) => ({ id: uid(), a: { dev: 'ex-patch', port: i }, b: { dev: 'ex-switch', port: i }, color: i < 4 ? 'blue' : 'yellow' }))
     };
+  }
+
+  /* ---------- Ports & cables ---------- */
+  const PORT_CHOICES = [8, 12, 16, 24, 48];
+  const CABLE_COLORS = [
+    { id: 'blue', name: 'Blue', hex: '#2f80dc' },
+    { id: 'yellow', name: 'Yellow', hex: '#e8c42a' },
+    { id: 'green', name: 'Green', hex: '#38b25a' },
+    { id: 'red', name: 'Red', hex: '#d8433a' },
+    { id: 'orange', name: 'Orange', hex: '#ec8a2e' },
+    { id: 'purple', name: 'Purple', hex: '#8b5dd8' },
+    { id: 'white', name: 'White', hex: '#e9e9e3' },
+    { id: 'grey', name: 'Grey', hex: '#8d959d' },
+    { id: 'black', name: 'Black', hex: '#24282d' }
+  ];
+  const colorHex = (id) => (CABLE_COLORS.find((c) => c.id === id) || CABLE_COLORS[0]).hex;
+  const colorName = (id) => (CABLE_COLORS.find((c) => c.id === id) || CABLE_COLORS[0]).name;
+  const CABLE_FACES = ['patch', 'switch', 'router'];
+  function portCount(d) {
+    if (!d) return 0;
+    if (d.face === 'router') return 8;
+    if (d.face === 'patch' || d.face === 'switch') return d.ports || (d.h >= 2 ? 48 : 24);
+    return 0;
+  }
+  function validCables(cables, devices) {
+    const used = new Set();
+    const dev = (id) => devices.find((d) => d.id === id);
+    return cables.filter((c) => {
+      const da = dev(c.a.dev), db = dev(c.b.dev);
+      if (!da || !db || da === db) return false;
+      if (!Number.isInteger(c.a.port) || !Number.isInteger(c.b.port)) return false;
+      if (c.a.port < 0 || c.b.port < 0 || c.a.port >= portCount(da) || c.b.port >= portCount(db)) return false;
+      const ka = c.a.dev + ':' + c.a.port, kb = c.b.dev + ':' + c.b.port;
+      if (used.has(ka) || used.has(kb)) return false;
+      used.add(ka); used.add(kb);
+      return true;
+    });
   }
 
   function overlaps(devs, u, h, ignoreId) {
@@ -607,17 +715,35 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     if (!s || typeof s !== 'object' || !Array.isArray(s.devices)) return null;
     const height = Number(s.height);
     if (!Number.isInteger(height) || height < 1 || height > 60) return null;
-    const out = { name: String(s.name || 'My rack').slice(0, 60), height, example: !!s.example, devices: [] };
+    const out = { name: String(s.name || 'My rack').slice(0, 60), height, example: !!s.example, devices: [], cables: [] };
+    const idMap = {};
+    const usedIds = new Set();
     for (const d of s.devices) {
       const u = Number(d.u), h = Number(d.h);
       if (!Number.isInteger(u) || !Number.isInteger(h) || h < 1 || h > 4 || u < 1 || u + h - 1 > height) return null;
       if (overlaps(out.devices, u, h)) return null;
-      out.devices.push({
-        id: uid(), u, h,
+      let id = typeof d.id === 'string' && /^[\w-]{1,40}$/.test(d.id) && !usedIds.has(d.id) ? d.id : uid();
+      while (usedIds.has(id)) id = uid();
+      usedIds.add(id);
+      if (d.id != null) idMap[d.id] = id;
+      const dev = {
+        id, u, h,
         label: String(d.label == null ? h + 'U device' : d.label).slice(0, 80),
         kind: KINDS.some((k) => k.id === d.kind) ? d.kind : 'other',
         face: FACES.some((f) => f.id === d.face) ? d.face : 'generic'
-      });
+      };
+      if (PORT_CHOICES.indexOf(Number(d.ports)) > -1) dev.ports = Number(d.ports);
+      out.devices.push(dev);
+    }
+    if (Array.isArray(s.cables)) {
+      for (const c of s.cables) {
+        if (!c || !c.a || !c.b) continue;
+        const a = { dev: idMap[c.a.dev], port: Number(c.a.port) };
+        const b = { dev: idMap[c.b.dev], port: Number(c.b.port) };
+        if (!a.dev || !b.dev) continue;
+        out.cables.push({ id: uid(), a, b, color: CABLE_COLORS.some((k) => k.id === c.color) ? c.color : 'blue' });
+      }
+      out.cables = validCables(out.cables, out.devices);
     }
     return out;
   }
@@ -630,7 +756,13 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   }
 
   let state = load() || exampleState();
+  if (!Array.isArray(state.cables)) state.cables = [];
   let selectedId = null;
+  let selectedCableId = null;
+  let cableMode = false;
+  let pendingPort = null;      // first end of a cable being drawn
+  let cableColor = 'blue';
+  let showCables = true;
   let history = [];
   let drag = null;
   let editing = false;
@@ -694,12 +826,18 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 
   function snapshot() { history.push(JSON.stringify(state)); if (history.length > 80) history.shift(); updateUndo(); }
   function mutate(fn, opts) {
-    snapshot(); fn(); save(); render(opts);
+    snapshot(); fn();
+    state.cables = validCables(state.cables || [], state.devices);
+    if (selectedCableId && !state.cables.some((c) => c.id === selectedCableId)) selectedCableId = null;
+    if (pendingPort && portCount(byId(pendingPort.dev)) <= pendingPort.port) pendingPort = null;
+    save(); render(opts);
   }
   function undo() {
     if (!history.length) return;
     state = JSON.parse(history.pop());
     if (selectedId && !byId(selectedId)) selectedId = null;
+    if (selectedCableId && !state.cables.some((c) => c.id === selectedCableId)) selectedCableId = null;
+    pendingPort = null;
     save(); render();
   }
   function updateUndo() { $('#undo').disabled = history.length === 0; }
@@ -732,17 +870,51 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       item.repeat(rows * perRow) + '</span>';
   }
   const LEDS = '<span class="leds"><i></i><i></i></span>';
-  const PORT = '<i class="port"></i>';
-  function artHTML(face, h) {
+  /* Numbered, addressable ports. Switches number in pairs (odd on top, even below),
+     patch panels number left to right, then the next row. */
+  function portGridHTML(d) {
+    const face = d.face, n = portCount(d);
+    let rows = 1;
+    if (face === 'switch' && n >= 12) rows = 2;
+    if (face === 'patch' && n > 24) rows = 2;
+    const cols = Math.ceil(n / rows);
+    const group = face === 'router' || cols <= 8 ? 4 : 6;
+    const tracks = [];
+    for (let c = 0; c < cols; c++) {
+      tracks.push('minmax(0, calc(var(--u) * .24))');
+      if ((c + 1) % group === 0 && c < cols - 1) tracks.push('calc(var(--u) * .14)');
+    }
+    const rowH = face === 'patch' ? '.3' : '.26';
+    const plugs = {};
+    if (d.id) (state.cables || []).forEach((c) => {
+      if (c.a.dev === d.id) plugs[c.a.port] = c;
+      if (c.b.dev === d.id) plugs[c.b.port] = c;
+    });
+    let html = '';
+    for (let i = 0; i < n; i++) {
+      let r, c;
+      if (face === 'switch' && rows === 2) { c = Math.floor(i / 2); r = i % 2; }
+      else { r = Math.floor(i / cols); c = i % cols; }
+      const gc = c + Math.floor(c / group) + 1;
+      const plug = plugs[i];
+      const pend = pendingPort && pendingPort.dev === d.id && pendingPort.port === i;
+      html += '<i class="port' + (plug ? ' plugged' : '') + (plug && plug.id === selectedCableId ? ' sel' : '') + (pend ? ' pending' : '') +
+        '" data-port="' + i + '" title="Port ' + (i + 1) + '" style="grid-area:' + (r + 1) + '/' + gc +
+        (plug ? ';--plug:' + colorHex(plug.color) : '') + '"></i>';
+    }
+    return '<span class="art portgrid ' + face + '" style="grid-template-columns:' + tracks.join(' ') +
+      ';grid-template-rows:repeat(' + rows + ', calc(var(--u) * ' + rowH + '))">' + html + '</span>';
+  }
+
+  function artHTML(d) {
+    const face = d.face || 'generic', h = d.h;
     switch (face) {
       case 'switch':
-        return wrapArt('ports', '<span class="pgroup" style="--rows:2">' + PORT.repeat(12) + '</span>', h, 0.6, 0.3, 8) +
-          '<span class="sfp">' + '<i></i>'.repeat(4) + '</span>' + LEDS;
+        return portGridHTML(d) + '<span class="sfp">' + '<i></i>'.repeat(4) + '</span>' + LEDS;
       case 'patch':
-        return wrapArt('ports patch', '<span class="pgroup" style="--rows:1">' + PORT.repeat(6) + '</span>', h, 0.3, 0.5, 8);
+        return portGridHTML(d);
       case 'router':
-        return '<span class="art ports-fixed"><span class="pgroup" style="--rows:1">' + PORT.repeat(4) + '</span>' +
-          '<span class="pgroup" style="--rows:1">' + PORT.repeat(4) + '</span><i class="console"></i></span>' +
+        return portGridHTML(d) + '<i class="console"></i>' +
           '<span class="spacer"></span>' + (h >= 2 ? '<span class="vents small"></span>' : '') +
           '<span class="sfp">' + '<i></i>'.repeat(2) + '</span>' + LEDS;
       case 'server':
@@ -775,7 +947,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const face = d.face || 'generic';
     return '<span class="ear"></span><span class="face f-' + face + (HAS_ART.indexOf(face) > -1 ? ' has-art' : '') + '">' +
       (String(d.label || '').trim() ? '<span class="tape">' + esc(d.label) + '</span>' : '') +
-      artHTML(face, d.h) +
+      artHTML(d) +
       '</span><span class="ear"></span>';
   }
 
@@ -807,9 +979,63 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       el.innerHTML = faceHTML(d);
       el.addEventListener('pointerdown', (e) => onDevicePointerDown(e, d.id));
       el.addEventListener('dblclick', () => startInlineEdit(d.id));
-      el.addEventListener('focus', () => { if (selectedId !== d.id) select(d.id); });
+      el.addEventListener('focus', () => { if (selectedId !== d.id && !cableMode) select(d.id); });
       bay.appendChild(el);
     });
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'cables');
+    svg.id = 'cables';
+    bay.appendChild(svg);
+    rack.classList.toggle('cable-mode', cableMode);
+    drawCables();
+  }
+
+  /* ---------- Cable drawing ---------- */
+  function portEl(end) {
+    return document.querySelector('.device[data-id="' + end.dev + '"] .port[data-port="' + end.port + '"]');
+  }
+  function portCenter(end, br) {
+    const el = portEl(end); if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2 - br.left, y: r.top + r.height / 2 - br.top };
+  }
+  function cablePath(a, b, U) {
+    const sag = U * 0.4 + Math.abs(b.y - a.y) * 0.25 + Math.abs(b.x - a.x) * 0.06;
+    const f = (n) => n.toFixed(1);
+    return 'M' + f(a.x) + ' ' + f(a.y) + ' C' + f(a.x) + ' ' + f(a.y + sag) + ' ' + f(b.x) + ' ' + f(b.y + sag) + ' ' + f(b.x) + ' ' + f(b.y);
+  }
+  function drawCables() {
+    const svg = $('#cables'); if (!svg) return;
+    const br = $('#bay').getBoundingClientRect();
+    svg.setAttribute('width', br.width);
+    svg.setAttribute('height', br.height);
+    svg.setAttribute('viewBox', '0 0 ' + br.width + ' ' + br.height);
+    const U = br.height / H();
+    const sw = Math.max(2, U * 0.075);
+    let out = '';
+    if (showCables) {
+      for (const c of state.cables) {
+        const pa = portCenter(c.a, br), pb = portCenter(c.b, br);
+        if (!pa || !pb) continue;
+        const d = cablePath(pa, pb, U);
+        const sel = c.id === selectedCableId;
+        const edge = c.color === 'black' ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.55)';
+        out += '<g class="cable' + (sel ? ' sel' : '') + '" data-cable="' + c.id + '">' +
+          (sel ? '<path class="halo" d="' + d + '" stroke-width="' + (sw + 7) + '"/>' : '') +
+          '<path class="edge" d="' + d + '" stroke="' + edge + '" stroke-width="' + (sw + 2) + '"/>' +
+          '<path class="core" d="' + d + '" stroke="' + colorHex(c.color) + '" stroke-width="' + sw + '"/>' +
+          '<path class="hit" d="' + d + '" stroke-width="' + (sw + 6) + '"/></g>';
+      }
+    }
+    out += '<path id="cable-temp" class="temp" stroke-width="' + sw + '"/>';
+    svg.innerHTML = out;
+  }
+  function drawTempCable(e) {
+    const t = $('#cable-temp'); if (!t) return;
+    if (!pendingPort || !e) { t.removeAttribute('d'); return; }
+    const br = $('#bay').getBoundingClientRect();
+    const a = portCenter(pendingPort, br); if (!a) return;
+    t.setAttribute('d', cablePath(a, { x: e.clientX - br.left, y: e.clientY - br.top }, br.height / H()));
   }
 
   function renderStats() {
@@ -853,10 +1079,68 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       const el = document.querySelector('.device[data-id="' + tr.dataset.id + '"]');
       if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }));
+    renderCableList();
+  }
+
+  function endName(end) {
+    const d = byId(end.dev);
+    return (d ? (String(d.label || '').trim() || faceName(d.face)) : '?');
+  }
+  function sortedCables() {
+    const top = (end) => { const d = byId(end.dev); return d ? d.u + d.h - 1 : 0; };
+    return state.cables.map((c) => {
+      // show the end that sits higher in the rack first
+      const flip = top(c.b) > top(c.a) || (top(c.b) === top(c.a) && c.b.port < c.a.port);
+      return { c, from: flip ? c.b : c.a, to: flip ? c.a : c.b };
+    }).sort((x, y) => (top(y.from) - top(x.from)) || (x.from.port - y.from.port));
+  }
+  function renderCableList() {
+    const body = $('#cable-list');
+    if (!state.cables.length) {
+      body.innerHTML = '<tr class="gap-row"><td colspan="4">No cables yet. Switch to Cables above the rack, then click two ports.</td></tr>';
+      return;
+    }
+    body.innerHTML = sortedCables().map(({ c, from, to }) =>
+      '<tr class="dev-row' + (c.id === selectedCableId ? ' selected' : '') + '" data-cable="' + c.id + '">' +
+        '<td class="dev-name">' + esc(endName(from)) + ' <span class="port-no">' + (from.port + 1) + '</span></td>' +
+        '<td class="dev-name">' + esc(endName(to)) + ' <span class="port-no">' + (to.port + 1) + '</span></td>' +
+        '<td><span class="chip" style="--c:' + colorHex(c.color) + '">' + colorName(c.color) + '</span></td>' +
+        '<td class="x-col"><button type="button" class="x-btn" data-del="' + c.id + '" aria-label="Remove cable">×</button></td>' +
+      '</tr>').join('');
+    $$('#cable-list tr.dev-row').forEach((tr) => tr.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-del]');
+      if (del) { removeCable(del.dataset.del); return; }
+      selectCable(tr.dataset.cable);
+    }));
+  }
+
+  function swatchesHTML(current, idPrefix) {
+    return '<div class="swatches">' + CABLE_COLORS.map((c) =>
+      '<button type="button" class="swatch" id="' + idPrefix + c.id + '" data-color="' + c.id + '" style="--c:' + c.hex + '" aria-pressed="' + (c.id === current) + '" aria-label="' + c.name + '" title="' + c.name + '"></button>').join('') + '</div>';
+  }
+
+  function renderCableInspector(box, c) {
+    const s = sortedCables().find((x) => x.c.id === c.id);
+    box.innerHTML =
+      '<h2>Selected cable</h2>' +
+      '<p class="cable-ends"><span>' + esc(endName(s.from)) + ' <span class="port-no">' + (s.from.port + 1) + '</span></span>' +
+        '<span class="cable-arrow" aria-hidden="true">↔</span>' +
+        '<span>' + esc(endName(s.to)) + ' <span class="port-no">' + (s.to.port + 1) + '</span></span></p>' +
+      '<div class="field"><span>Color</span>' + swatchesHTML(c.color, 'insp-cc-') + '</div>' +
+      '<div class="row-btns"><button class="btn danger" type="button" id="insp-del-cable">Remove cable</button></div>' +
+      '<p class="kbd-hint"><kbd>Del</kbd> remove · <kbd>Esc</kbd> deselect</p>';
+    $$('#inspector .swatch').forEach((b) => b.addEventListener('click', () => {
+      cableColor = b.dataset.color;
+      mutate(() => { c.color = b.dataset.color; });
+      renderSwatches();
+    }));
+    $('#insp-del-cable').addEventListener('click', () => removeCable(c.id));
   }
 
   function renderInspector() {
     const box = $('#inspector');
+    const cab = selectedCableId && state.cables.find((c) => c.id === selectedCableId);
+    if (cab) { renderCableInspector(box, cab); return; }
     const d = selectedId && byId(selectedId);
     if (!d) {
       box.innerHTML = '<h2>Selected device</h2><p class="empty-inspect">Click a device in the rack to rename it, change its size or type, or move it.</p>' +
@@ -874,6 +1158,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
       '</select></label>' +
       '<label class="field"><span>Type</span><select class="input" id="insp-kind">' + kindOpts + '</select></label>' +
       '<div class="field"><span>Size</span><div class="seg" id="insp-size">' + seg + '</div></div>' +
+      portFieldsHTML(d) +
       '<div class="row-btns">' +
         '<button class="btn" type="button" id="insp-up" aria-label="Move up one U">↑ Up</button>' +
         '<button class="btn" type="button" id="insp-down" aria-label="Move down one U">↓ Down</button>' +
@@ -898,6 +1183,35 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     $('#insp-down').addEventListener('click', () => nudge(d.id, -1));
     $('#insp-dup').addEventListener('click', () => duplicate(d.id));
     $('#insp-del').addEventListener('click', () => remove(d.id));
+    const pc = $('#insp-ports');
+    if (pc) pc.addEventListener('change', (e) => {
+      const n = Number(e.target.value);
+      const lost = state.cables.filter((c) => (c.a.dev === d.id && c.a.port >= n) || (c.b.dev === d.id && c.b.port >= n)).length;
+      mutate(() => { d.ports = n; });
+      if (lost) toast('Removed ' + lost + ' cable' + (lost === 1 ? '' : 's') + ' on ports above ' + n + '.', true);
+    });
+    const pfp = $('#insp-pfp');
+    if (pfp) pfp.addEventListener('click', () => connectPortForPort(d.id, $('#insp-pfp-target').value));
+  }
+
+  function portFieldsHTML(d) {
+    if (CABLE_FACES.indexOf(d.face) === -1) return '';
+    let html = '';
+    if (d.face !== 'router') {
+      html += '<label class="field"><span>Ports</span><select class="input" id="insp-ports">' +
+        PORT_CHOICES.map((n) => '<option value="' + n + '"' + (n === portCount(d) ? ' selected' : '') + '>' + n + ' ports</option>').join('') +
+        '</select></label>';
+    }
+    const targets = state.devices.filter((x) => x.id !== d.id && CABLE_FACES.indexOf(x.face) > -1)
+      .sort((a, b) => (b.u + b.h) - (a.u + a.h));
+    if (targets.length) {
+      html += '<div class="field"><span>Wire port-for-port to</span><div class="pfp">' +
+        '<select class="input" id="insp-pfp-target">' + targets.map((t) =>
+          '<option value="' + t.id + '">' + esc(String(t.label || '').trim() || faceName(t.face)) + ' (' + posLabel(t) + ')</option>').join('') + '</select>' +
+        '<button class="btn" type="button" id="insp-pfp">Connect</button></div>' +
+        '<p class="field-note">Port 1 to port 1, 2 to 2, and so on, in the current cable color. Ports already in use are skipped.</p></div>';
+    }
+    return html;
   }
 
   function renderHeader() {
@@ -919,8 +1233,87 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
 
   function select(id) {
     selectedId = id;
+    const hadCable = !!selectedCableId;
+    selectedCableId = null;
     $$('.device[data-id]').forEach((el) => el.classList.toggle('selected', el.dataset.id === id));
+    if (hadCable) renderRack();
     renderList(); renderInspector();
+  }
+  function selectCable(id) {
+    selectedCableId = id;
+    selectedId = null;
+    renderRack(); renderList(); renderInspector();
+  }
+
+  /* ---------- Cable actions ---------- */
+  const cableAt = (end) => state.cables.find((c) =>
+    (c.a.dev === end.dev && c.a.port === end.port) || (c.b.dev === end.dev && c.b.port === end.port));
+  function removeCable(id) {
+    if (!state.cables.some((c) => c.id === id)) return;
+    if (selectedCableId === id) selectedCableId = null;
+    mutate(() => { state.cables = state.cables.filter((c) => c.id !== id); });
+    toast('Removed cable.', true);
+  }
+  function onPortClick(end) {
+    const existing = cableAt(end);
+    if (!pendingPort) {
+      if (existing) { selectCable(existing.id); return; }
+      pendingPort = end;
+      selectedCableId = null; selectedId = null;
+      renderRack(); renderList(); renderInspector(); renderModeHint();
+      return;
+    }
+    if (pendingPort.dev === end.dev && pendingPort.port === end.port) { cancelPending(); return; }
+    if (existing) { toast('That port already has a cable. Pick a free port, or press Esc to cancel.'); return; }
+    if (pendingPort.dev === end.dev) { toast('Pick a port on a different device.'); return; }
+    const c = { id: uid(), a: pendingPort, b: end, color: cableColor };
+    pendingPort = null;
+    mutate(() => { state.cables.push(c); });
+    renderModeHint();
+  }
+  function cancelPending() {
+    if (!pendingPort) return;
+    pendingPort = null;
+    renderRack(); renderModeHint();
+  }
+  function connectPortForPort(aId, bId) {
+    const a = byId(aId), b = byId(bId); if (!a || !b) return;
+    const n = Math.min(portCount(a), portCount(b));
+    const add = [];
+    for (let i = 0; i < n; i++) {
+      const ea = { dev: aId, port: i }, eb = { dev: bId, port: i };
+      if (!cableAt(ea) && !cableAt(eb)) add.push({ id: uid(), a: ea, b: eb, color: cableColor });
+    }
+    if (!add.length) { toast('No matching free ports to connect.'); return; }
+    mutate(() => { state.cables = state.cables.concat(add); });
+    toast('Added ' + add.length + ' cable' + (add.length === 1 ? '' : 's') + '.', true);
+  }
+
+  /* ---------- Mode toolbar ---------- */
+  function renderSwatches() {
+    const box = $('#swatches');
+    box.innerHTML = swatchesHTML(cableColor, 'sw-');
+    $$('#swatches .swatch').forEach((b) => b.addEventListener('click', () => {
+      cableColor = b.dataset.color;
+      renderSwatches();
+    }));
+  }
+  function renderModeHint() {
+    const hint = $('#mode-hint');
+    hint.hidden = !cableMode;
+    if (!cableMode) return;
+    hint.textContent = pendingPort
+      ? 'Now click the port at the other end. Press Esc to cancel.'
+      : 'Click a port, then click the port it connects to. Click a cable or plugged port to select it.';
+  }
+  function setCableMode(on) {
+    cableMode = on;
+    pendingPort = null;
+    $('#mode-arrange').setAttribute('aria-pressed', String(!on));
+    $('#mode-cable').setAttribute('aria-pressed', String(on));
+    $('#swatches').hidden = !on;
+    if (on && !showCables) { showCables = true; $('#show-cables').checked = true; }
+    renderRack(); renderModeHint();
   }
 
   /* ---------- Actions ---------- */
@@ -1011,6 +1404,11 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   function onDevicePointerDown(e, id) {
     if (editing || e.button !== 0) return;
     const d = byId(id); if (!d) return;
+    if (cableMode) {
+      // ports are handled by the bay's click handler; anything else just selects the device
+      if (!e.target.closest('.port')) { if (pendingPort) cancelPending(); if (selectedId !== id) select(id); }
+      return;
+    }
     if (selectedId !== id) select(id);
     const r = e.currentTarget.getBoundingClientRect();
     beginPointer(e, { type: 'device', id, h: d.h, kind: d.kind, label: d.label, face: d.face, el: e.currentTarget,
@@ -1250,7 +1648,12 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   function exportJSON() {
     return JSON.stringify({
       name: state.name, height: state.height,
-      devices: state.devices.slice().sort((a, b) => b.u - a.u).map((d) => ({ u: d.u, h: d.h, label: d.label, kind: d.kind, face: d.face || 'generic' }))
+      devices: state.devices.slice().sort((a, b) => b.u - a.u).map((d) => {
+        const o = { id: d.id, u: d.u, h: d.h, label: d.label, kind: d.kind, face: d.face || 'generic' };
+        if (d.ports) o.ports = d.ports;
+        return o;
+      }),
+      cables: sortedCables().map(({ c, from, to }) => ({ a: from, b: to, color: c.color }))
     }, null, 2);
   }
   $('#copy-json').addEventListener('click', () => {
@@ -1271,25 +1674,95 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     $('#import-actions').hidden = false; ioMsg(''); ta.focus();
   });
   $('#cancel-import').addEventListener('click', () => { $('#io-text').hidden = true; $('#import-actions').hidden = true; ioMsg(''); });
-  $('#do-import').addEventListener('click', () => {
+  function loadLayoutText(text) {
     let parsed = null;
-    try { parsed = normalize(JSON.parse($('#io-text').value)); } catch (err) { parsed = null; }
-    if (!parsed) { ioMsg('That text isn’t a valid layout. Paste the full text from “Copy layout”, and check that no devices overlap.', true); return; }
+    try { parsed = normalize(JSON.parse(text)); } catch (err) { parsed = null; }
+    if (!parsed) return false;
     parsed.example = false;
-    selectedId = null;
+    selectedId = null; selectedCableId = null; pendingPort = null;
     mutate(() => { state = parsed; });
+    return true;
+  }
+  $('#do-import').addEventListener('click', () => {
+    if (!loadLayoutText($('#io-text').value)) {
+      ioMsg('That text isn’t a valid layout. Paste the full text from “Copy layout”, and check that no devices overlap.', true);
+      return;
+    }
     $('#io-text').hidden = true; $('#import-actions').hidden = true;
     ioMsg('Layout loaded.');
   });
 
+  /* Files */
+  const framed = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+  function fileName() {
+    const slug = String(state.name || 'rack').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'rack';
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return slug + '-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.json';
+  }
+  $('#save-file').addEventListener('click', () => {
+    const name = fileName();
+    try {
+      const url = URL.createObjectURL(new Blob([exportJSON()], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) { /* handled by the message below */ }
+    ioMsg(framed
+      ? 'This preview may block downloads. If no file appeared, open the planner on its own page (like your GitHub Pages site), or use Copy layout.'
+      : 'Saved ' + name + ' to your downloads.');
+  });
+  $('#open-file').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { ioMsg('That file is too large to be a rack layout.', true); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (loadLayoutText(String(reader.result))) {
+        $('#io-text').hidden = true; $('#import-actions').hidden = true;
+        ioMsg('Loaded ' + f.name + '.');
+      } else {
+        ioMsg(f.name + ' isn’t a valid rack layout. Choose a file saved from this planner.', true);
+      }
+    };
+    reader.onerror = () => ioMsg('Couldn’t read ' + f.name + '. Try choosing it again.', true);
+    reader.readAsText(f);
+  });
+
   /* ---------- Keyboard & misc ---------- */
-  $('#bay').addEventListener('pointerdown', (e) => { if (e.target.id === 'bay') select(null); });
+  $('#bay').addEventListener('pointerdown', (e) => {
+    if (e.target.id === 'bay') { if (pendingPort) cancelPending(); select(null); }
+  });
+  $('#bay').addEventListener('click', (e) => {
+    if (!cableMode) return;
+    const cab = e.target.closest('.cable[data-cable]');
+    if (cab) { if (pendingPort) cancelPending(); selectCable(cab.dataset.cable); return; }
+    const p = e.target.closest('.port[data-port]');
+    const dev = p && p.closest('.device[data-id]');
+    if (p && dev) onPortClick({ dev: dev.dataset.id, port: Number(p.dataset.port) });
+  });
+  $('#bay').addEventListener('pointermove', (e) => { if (cableMode && pendingPort) drawTempCable(e); });
+  $('#bay').addEventListener('pointerleave', () => drawTempCable(null));
+  $('#mode-arrange').addEventListener('click', () => setCableMode(false));
+  $('#mode-cable').addEventListener('click', () => setCableMode(true));
+  $('#show-cables').addEventListener('change', (e) => { showCables = e.target.checked; drawCables(); });
+  if (window.ResizeObserver) new ResizeObserver(() => drawCables()).observe($('#bay'));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawCables());
 
   document.addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); undo(); return; }
-    if (typing || editing || !selectedId) return;
+    if (typing || editing) return;
+    if (e.key === 'Escape' && pendingPort) { cancelPending(); return; }
+    if (selectedCableId) {
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeCable(selectedCableId); }
+      else if (e.key === 'Escape') { selectedCableId = null; renderRack(); renderList(); renderInspector(); }
+      return;
+    }
+    if (!selectedId) return;
     if (e.key === 'ArrowUp') { e.preventDefault(); nudge(selectedId, 1); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); nudge(selectedId, -1); }
     else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remove(selectedId); }
@@ -1304,6 +1777,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   });
 
   renderPalette();
+  renderSwatches();
   render();
 })();
 </script>
