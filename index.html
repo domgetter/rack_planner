@@ -538,8 +538,7 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
         </select>
       </label>
       <label class="field-inline" for="rack-height">Rack height
-        <span class="height-box"><input id="rack-height" class="btn height-input" type="number" min="4" max="70" step="1" inputmode="numeric" list="height-presets" aria-describedby="height-unit"><span id="height-unit">U</span></span>
-        <datalist id="height-presets"><option value="6"></option><option value="9"></option><option value="12"></option><option value="16"></option><option value="18"></option><option value="22"></option><option value="24"></option><option value="27"></option><option value="32"></option><option value="42"></option><option value="45"></option><option value="48"></option></datalist>
+        <span class="height-box"><input id="rack-height" class="btn height-input" type="number" min="4" max="70" step="1" inputmode="numeric" aria-describedby="height-unit"><span id="height-unit">U</span></span>
       </label>
       <button id="undo" class="btn" type="button">Undo</button>
       <button id="clear" class="btn danger" type="button">Clear rack</button>
@@ -756,7 +755,8 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     const dev = (id) => devices.find((d) => d.id === id);
     return cables.filter((c) => {
       const da = dev(c.a.dev), db = dev(c.b.dev);
-      if (!da || !db || da === db) return false;
+      if (!da || !db) return false;
+      if (c.a.dev === c.b.dev && c.a.port === c.b.port) return false;
       if (!Number.isInteger(c.a.port) || !Number.isInteger(c.b.port)) return false;
       if (c.a.port < 0 || c.b.port < 0 || c.a.port >= portCount(da) || c.b.port >= portCount(db)) return false;
       const ka = c.a.dev + ':' + c.a.port, kb = c.b.dev + ':' + c.b.port;
@@ -1325,7 +1325,6 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
     }
     if (pendingPort.dev === end.dev && pendingPort.port === end.port) { cancelPending(); return; }
     if (existing) { toast('That port already has a cable. Pick a free port, or press Esc to cancel.'); return; }
-    if (pendingPort.dev === end.dev) { toast('Pick a port on a different device.'); return; }
     const c = { id: uid(), a: pendingPort, b: end, color: cableColor };
     pendingPort = null;
     mutate(() => { state.cables.push(c); });
@@ -1823,9 +1822,11 @@ tr.gap-row td { color: var(--muted); font-style: italic; }
   });
   $('#bay').addEventListener('click', (e) => {
     if (!cableMode) return;
+    // A port under the pointer wins over a cable draped across it
+    const under = document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [e.target];
+    const p = under.find((el) => el.matches && el.matches('.port[data-port]')) || e.target.closest('.port[data-port]');
     const cab = e.target.closest('.cable[data-cable]');
-    if (cab) { if (pendingPort) cancelPending(); selectCable(cab.dataset.cable); return; }
-    const p = e.target.closest('.port[data-port]');
+    if (!p && cab) { if (pendingPort) cancelPending(); selectCable(cab.dataset.cable); return; }
     const dev = p && p.closest('.device[data-id]');
     if (p && dev) onPortClick({ dev: dev.dataset.id, port: Number(p.dataset.port) });
   });
